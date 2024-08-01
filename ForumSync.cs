@@ -19,24 +19,36 @@ namespace luaobfuscator_forumsync
                 var channel = await Program.discordClient.GetChannelAsync(channelId);
                 if (channel.Type != ChannelType.GuildForum) return [];
 
+                var fetchTasks = new List<Task>();
+
                 foreach (var forumThread in channel.Threads)
                 {
                     // cache all the messages somewhere where you want. ill just do it like this for concept
-                    List<DiscordMessage> threadMessages = [];
+                    List<DiscordMessage> threadMessages = new List<DiscordMessage>();
                     if (!messageCache.TryGetValue(forumThread.Id, out var cachedMessages))
                     {
                         Console.WriteLine($"Fetching messages from thread id {forumThread.Id}");
-                        await FetchAndCacheMessagesAsync(forumThread.Id);
+                        var fetchTask = FetchAndCacheMessagesAsync(forumThread.Id);
+                        fetchTasks.Add(fetchTask);
                     }
-                    else threadMessages = cachedMessages;
-
-                    // get the first message of the thread. so the thread body thing ahhh yk ig
-                    DiscordMessage firstMessage;
-                    if (threadMessages.Count > 0)
+                    else
                     {
-                        firstMessage = threadMessages.Last();
+                        threadMessages = cachedMessages;
                     }
-                    else // for some reason it doesnt fetch all messages first. maybe im just dumb or idk.
+                }
+
+                await Task.WhenAll(fetchTasks);
+
+                foreach (var forumThread in channel.Threads)
+                {
+                    if (!messageCache.TryGetValue(forumThread.Id, out var threadMessages))
+                    {
+                        Console.WriteLine($"Messages for thread id {forumThread.Id} were not fetched.");
+                        continue;
+                    }
+
+                    DiscordMessage? firstMessage = threadMessages.Count > 0 ? threadMessages.Last() : null;
+                    if (firstMessage == null)
                     {
                         await FetchAndCacheMessagesAsync(forumThread.Id);
                         messageCache.TryGetValue(forumThread.Id, out var cachedMessages2);
@@ -44,7 +56,7 @@ namespace luaobfuscator_forumsync
 
                         threadMessages = cachedMessages2;
                         firstMessage = threadMessages.Last();
-                    };
+                    }
 
                     DiscordUser author = await Program.discordClient.GetUserAsync(forumThread.CreatorId);
                     threads.Add(new ForumThread(

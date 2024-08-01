@@ -127,14 +127,16 @@ namespace luaobfuscator_forumsync
             await discordClient.ConnectAsync(status, UserStatus.Online);
 
             // listen to messageCreate to update messageCache
-            discordClient.MessageCreated += async (client, eventArgs) =>
+            discordClient.MessageCreated += (client, eventArgs) =>
             {
                 ForumSync.AddNewMessage(eventArgs);
+                return Task.CompletedTask;
             };
 
-            discordClient.MessageDeleted += async (client, eventArgs) =>
+            discordClient.MessageDeleted += (client, eventArgs) =>
             {
                 ForumSync.RemovedDeletedMessage(eventArgs);
+                return Task.CompletedTask;
             };
 
             // everything here is just for the concept obv.
