@@ -144,8 +144,9 @@ namespace luaobfuscator_forumsync
             app.MapGet("/{channelId}", async (ulong channelId) =>
             {
                 var data = await ForumSync.FetchForumData(channelId);
-                string htmlStuff = "";
+                if (data == null) return Results.NotFound("Channel not found.");
 
+                string htmlStuff = "";
                 foreach (var thread in data)
                 {
                     htmlStuff += $@"<a class='threaditem' href='/{channelId}/{thread.Id}'>
@@ -164,8 +165,9 @@ namespace luaobfuscator_forumsync
             app.MapGet("/{channelId}/{threadId}", async (ulong channelId, ulong threadId) =>
             {
                 var data = await ForumSync.FetchForumData(channelId);
-                string htmlStuff = "";
+                if (data == null) return Results.NotFound("Channel not found.");
 
+                string htmlStuff = "";
                 var thread = data.FirstOrDefault(t => t.Id == threadId);
                 if (thread == null) return Results.NotFound("Thread not found.");
 

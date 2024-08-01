@@ -9,7 +9,7 @@ namespace luaobfuscator_forumsync
     public class ForumSync
     {
         private static readonly Dictionary<ulong, List<DiscordMessage>> messageCache = [];
-        public async static Task<List<ForumThread>> FetchForumData(ulong channelId)
+        public async static Task<List<ForumThread>?> FetchForumData(ulong channelId)
         {
             try
             {
@@ -66,7 +66,7 @@ namespace luaobfuscator_forumsync
             catch (Exception error)
             {
                 Console.WriteLine(error);
-                return [];
+                return null;
             }
         }
 
