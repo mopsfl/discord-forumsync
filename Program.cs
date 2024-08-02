@@ -1,54 +1,73 @@
-using System;
 using DSharpPlus;
-using DSharpPlus.EventArgs;
 using DSharpPlus.Entities;
-using System.Diagnostics;
-using Microsoft.AspNetCore.Http.HttpResults;
+using System.Text.RegularExpressions;
+using dotenv.net;
 
 namespace luaobfuscator_forumsync
 {
     public sealed class Program
     {
+        public static readonly Regex urlRegex = new(
+            @"^(https?:\/\/)?(www\.)?((\d{1,3}\.){3}\d{1,3}(:\d{1,5})?|([\w\-]+\.)+[a-zA-Z]{2,9})(\/.*)?$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline
+        );
         public static DiscordClient? discordClient;
         private static readonly string htmlContent1 = @"<!DOCTYPE html>
-<html lang='en'>
-<head>
-    <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <title>Forum Sync Test</title>
-    <style>
-        * { color: white !important }
-        body { background: #1c1c1c; }
-        .container {
-            margin: 1em 20%;
-            display: grid;
-            gap: 5px
-        }
-        .threaditem {
-            background: #444;
-            color: white;
-            padding: 10px;
-            font-family: Arial;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-        }
-        img { width: 50px; height: 50px; margin-right: 10px }
-        .threaditem > div > h3 { margin: 0; }
-        .threaditem > div > p { margin: 0; margin-top: 10px }
-        .threaditem > div > p > span {
-            background: #2d2d2d;
-            padding: 3px;
-            border-radius: 3px;
-        }
-    </style>
-</head>
-<body>
-<div class='container'>
-    <!--content-->
-</div>
-</body>
-</html>";
+        <html lang='en'>
+        <head>
+            <meta charset='UTF-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <title>Forum Sync Test</title>
+            <style>
+                * { color: white !important }
+                body { background: #1c1c1c; }
+                .container {
+                    margin: 1em 20%;
+                    display: grid;
+                    gap: 5px
+                }
+                
+                .threaditem {
+                    background: #444;
+                    color: white;
+                    padding: 10px;
+                    font-family: Arial;
+                    text-decoration: none;
+                    display: flex;
+                    align-items: center;
+                }
+
+                a { color: #009fff !important }
+                img { width: 50px; height: 50px; margin-right: 10px }
+                .threaditem > div > h3 { margin: 0; }
+                .threaditem > div > p { margin: 0; margin-top: 10px }
+                .threaditem > div > p > span {
+                    background: #2d2d2d;
+                    padding: 3px;
+                    border-radius: 3px;
+                }
+
+                .path {
+                    background: #444;
+                    width: min-content;
+                    padding: 5px;
+                    font-family: Arial;
+                    border-top-left-radius: 4px;
+                    border-top-right-radius: 4px;
+                    height: min-content
+                }
+
+                @media only screen and (max-width: 700px) {
+                    .container { margin: 0; }
+                }
+            </style>
+        </head>
+        <body>
+        <div class='container'>
+            <!--content-->
+        </div>
+        </body>
+        </html>";
         private static readonly string htmlContent2 = @"<!DOCTYPE html>
         <html lang='en'>
         
@@ -57,6 +76,7 @@ namespace luaobfuscator_forumsync
             <meta name='viewport' content='width=device-width, initial-scale=1.0'>
             <title>Forum Sync Test</title>
             <style>
+                * { color: white }
                 body { background: #1c1c1c }
 
                 .grid { display: grid !important }
@@ -88,7 +108,9 @@ namespace luaobfuscator_forumsync
                     margin-top: 20px;
                 }
 
-                img { width: 50px; height: 50px; margin-right: 10px }
+                img:not(.attachment-img) { width: 50px; height: 50px; margin-right: 10px }
+                .attachment-img { max-width: 100px; }
+                a { color: #009fff }
 
                 .threaditem > div > p, .threaditem > div > h3 { margin: 0 }
                 .threaditem > div > h3 { margin: 0; }
@@ -103,6 +125,41 @@ namespace luaobfuscator_forumsync
                 .threaditem-author {
                     display: flex;
                 }
+
+                .mention {
+                    background: #4a4b6f;
+                    padding: 3px;
+                    border-radius: 3px;
+                    outline: solid 1px #575882;
+                }
+
+                .mention:hover { background: #5f608c }
+                
+                .codeblock {
+                    background: #262626;
+                    display: block;
+                    padding: 10px;
+                    border-radius: 3px;
+                    font-family: Courier New;
+                    font-size: 14px;
+                    margin-top: 5px;
+                    margin-bottom: 5px;
+                    white-space: pre;
+                }
+
+                .path {
+                    background: #444;
+                    width: auto;
+                    padding: 5px;
+                    font-family: Arial;
+                    border-top-left-radius: 4px;
+                    border-top-right-radius: 4px;
+                    height: min-content;
+                }
+
+                @media only screen and (max-width: 700px) {
+                    .container { margin: 0; }
+                }
             </style>
         </head>
         
@@ -116,10 +173,12 @@ namespace luaobfuscator_forumsync
         </html>";
         public static async Task Main()
         {
-
+            DotEnv.Load();
+            string? token = Environment.GetEnvironmentVariable("TOKEN");
+            if (token == null) { Console.WriteLine("Token is null."); return; }
             DiscordConfiguration config = new()
             {
-                Token = "<DISCORD_BOT_TOKEN>",
+                Token = token,
                 Intents = DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents
             }; discordClient = new(config);
 
@@ -147,16 +206,17 @@ namespace luaobfuscator_forumsync
             {
                 var data = await ForumSync.FetchForumData(channelId);
                 if (data == null) return Results.NotFound("Channel not found.");
+                DiscordChannel channel = await discordClient.GetChannelAsync(channelId);
 
-                string htmlStuff = "";
+                string htmlStuff = $"<a href='/{channelId}' class='path'>{channel.Name}</a>";
                 foreach (var thread in data)
                 {
                     htmlStuff += $@"<a class='threaditem' href='/{channelId}/{thread.Id}'>
-                    <img src='{thread.AuthorAvatarUrl}'></img>
-                    <div>
-                        <h3>{thread.Name}</h3>
-                        <p><span>{thread.AuthorName}</span> <span>{thread.CreatedTimestampString}</span></p>
-                    </div>
+                        <img src='{thread.AuthorAvatarUrl}' loading='lazy'>
+                        <div>
+                            <h3>{thread.Name}</h3>
+                            <p><span>{thread.AuthorName}</span> <span>{thread.CreatedTimestampString}</span></p>
+                        </div>
                     </a>";
                 }
 
@@ -168,6 +228,7 @@ namespace luaobfuscator_forumsync
             {
                 var data = await ForumSync.FetchForumData(channelId);
                 if (data == null) return Results.NotFound("Channel not found.");
+                DiscordChannel channel = await discordClient.GetChannelAsync(channelId);
 
                 string htmlStuff = "";
                 var thread = data.FirstOrDefault(t => t.Id == threadId);
@@ -175,28 +236,30 @@ namespace luaobfuscator_forumsync
 
                 foreach (var message in thread.Messages)
                 {
-                    if (message.Id == thread.FirstMessage.Id) continue; // skip first message wich is the thread content yk
-                    // check if not first message
+                    if (message.Id == thread.FirstMessage?.Id) continue; // skip first message wich is the thread content yk
+
                     htmlStuff += $@"<div class='threaditem grid'>
                         <div class='threaditem-author'>
-                            <img src='{message.Author.AvatarUrl}'></img>
+                            <img src='{message.Author.AvatarUrl}'>
                             <div>
-                                <p><span>{message.Author.Username}</span> <span>{message.CreationTimestamp:HH:mm - dd/MM/yyyy}</span></p>
+                                <p><span>@{message.Author.Username}</span> <span>{message.CreationTimestamp:HH:mm - dd/MM/yyyy}</span></p>
                             </div>
                         </div>
-                        <span>{message.Content}</span>
+                        <span>{Utils.FormatMessageContent(message)}</span>
                     </div>";
                 }
 
-                string finalHtml = htmlContent2.Replace("<!--content1-->", $@"<a class='threaditem'>
-                <img src='{thread.AuthorAvatarUrl}'></img>
-                <div class='threaditem-author grid'>
-                    <h3>{thread.Name}</h3>
-                    <p><span>{thread.AuthorName}</span> <span>{thread.CreatedTimestampString}</span></p>
-                </div>
-                <div class='break'></div>
-                <span>{thread.FirstMessage.Content}</span>
+                string finalHtml = htmlContent2.Replace("<!--content1-->", $@"<div style='display: flex; gap: 5px'><a href='/{channelId}' class='path'>{channel.Name}</a> <a href='/{channelId}/{thread.Id}' class='path'>{thread.Name}</a></div>
+                <a class='threaditem' style='margin-bottom: 10px'>
+                    <img src='{thread.AuthorAvatarUrl}' loading='lazy'>
+                    <div class='threaditem-author grid'>
+                        <h3>{thread.Name}</h3>
+                        <p><span>@{thread.AuthorName}</span> <span>{thread.CreatedTimestampString}</span></p>
+                    </div>
+                    <div class='break'></div>
+                    <span>{Utils.FormatMessageContent(thread.FirstMessage)}</span>
                 </a>").Replace("<!--content2-->", htmlStuff);
+
                 return Results.Content(finalHtml, "text/html");
             });
 

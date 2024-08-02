@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.Caching;
 using DSharpPlus;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
@@ -8,7 +7,7 @@ namespace luaobfuscator_forumsync
 {
     public class ForumSync
     {
-        private static readonly Dictionary<ulong, List<DiscordMessage>> messageCache = [];
+        public static readonly Dictionary<ulong, List<DiscordMessage>> messageCache = [];
         public async static Task<List<ForumThread>?> FetchForumData(ulong channelId)
         {
             try
@@ -24,7 +23,7 @@ namespace luaobfuscator_forumsync
                 foreach (var forumThread in channel.Threads)
                 {
                     // cache all the messages somewhere where you want. ill just do it like this for concept
-                    List<DiscordMessage> threadMessages = new List<DiscordMessage>();
+                    List<DiscordMessage> threadMessages = [];
                     if (!messageCache.TryGetValue(forumThread.Id, out var cachedMessages))
                     {
                         Console.WriteLine($"Fetching messages from thread id {forumThread.Id}");
@@ -85,10 +84,11 @@ namespace luaobfuscator_forumsync
         public static void AddNewMessage(MessageCreateEventArgs eventArgs)
         {
             if (eventArgs.Channel.Parent.Type != ChannelType.GuildForum) { Debug.WriteLine("ChannelType is not a GuildForum"); return; };
-            if (messageCache[eventArgs.Channel.Id] == null) { Debug.WriteLine("ChannelId not found in messageCache"); return; };
+            messageCache.TryGetValue(eventArgs.Channel.Id, out var messages);
+            if (messages == null) return;
 
             Console.WriteLine($"New message sent in thread {eventArgs.Channel.Id} | {eventArgs.Message.Id}");
-            messageCache[eventArgs.Channel.Id].Insert(0, eventArgs.Message);
+            messages.Insert(0, eventArgs.Message);
 
             return;
         }
