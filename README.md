@@ -7,7 +7,7 @@
 # How To Use
 
 1. Run the program
-2. Open <code>localhost:5000/:forumChannelId</code> (port depends if you run on Release or Debug)
+2. Open <code>localhost:5000/forum/:forumChannelId</code> (port depends if you run on Release or Debug)
 
 ##### Example:
-<code>localhost:5000/1267838155172741142</code>
+<code>localhost:5000/forum/1267838155172741142</code>

@@ -1,0 +1,159 @@
+* {
+    color: white
+}
+
+body {
+    background: #1c1c1c
+}
+
+.grid {
+    display: grid !important
+}
+
+.container {
+    margin: 1em 20%;
+    display: grid;
+    gap: 5px
+}
+
+.threaditem {
+    background: #444;
+    color: white;
+    padding: 10px;
+    font-family: Arial;
+    text-decoration: none;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    border-radius: 3px;
+}
+
+.threaditem.grid>span {
+    margin-top: 10px
+}
+
+.break {
+    flex-basis: 100%;
+    height: 0;
+    margin-top: 20px;
+}
+
+img:not(.attachment-img) {
+    width: 50px;
+    height: 50px;
+    margin-right: 10px;
+}
+
+.attachment-img {
+    max-width: 100px;
+    border-radius: 3px;
+}
+
+a {
+    color: #009fff
+}
+
+.attachment-file {
+    padding: 10px;
+    padding-left: 5px;
+    background: #262626;
+    text-align: left;
+    max-width: 250px;
+    border-radius: 3px;
+    text-decoration: none;
+    display: flex;
+    align-content: center;
+    align-items: center;
+}
+
+.attachment-file-info {
+    display: grid;
+    gap: 5px;
+}
+
+.attachment-file-size {
+    font-size: 12px;
+    color: #575757;
+}
+
+.attachment-file>a {
+    text-decoration: none;
+}
+
+.attachment-file>img {
+    filter: brightness(200%);
+    width: 35px;
+    height: 35px;
+}
+
+.threaditem>div>p,
+.threaditem>div>h3 {
+    margin: 0
+}
+
+.threaditem>div>h3 {
+    margin: 0;
+}
+
+.threaditem>div>p {
+    margin: 0;
+    margin-top: 10px
+}
+
+.threaditem>div>p>span,
+.threaditem-author>div>p>span {
+    background: #2d2d2d;
+    padding: 3px;
+    border-radius: 3px;
+}
+
+.threaditem-author {
+    display: flex;
+}
+
+.mention {
+    background: #4a4b6f;
+    padding: 3px;
+    border-radius: 3px;
+}
+
+.mention:not(.mention-role) {
+    outline: solid 1px #575882;
+    cursor: pointer;
+}
+
+.mention:hover {
+    filter: brightness(1.1);
+}
+
+.codeblock {
+    background: #262626;
+    display: block;
+    padding: 10px;
+    border-radius: 3px;
+    font-family: Courier New;
+    font-size: 14px;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    white-space: pre;
+}
+
+.path {
+    background: #444;
+    width: max-content;
+    padding: 5px;
+    font-family: Arial;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    height: min-content;
+    max-width: 250px;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+@media only screen and (max-width: 700px) {
+    .container {
+        margin: 0;
+    }
+}
