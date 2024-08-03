@@ -91,7 +91,7 @@ namespace luaobfuscator_forumsync
                         <img src='{thread.AuthorAvatarUrl}' loading='lazy'>
                         <div>
                             <h3>{thread.Name}</h3>
-                            <p><span>{thread.AuthorName}</span> <span>{thread.CreatedTimestampString}</span></p>
+                            <p><span class='inline-text'>{thread.AuthorName}</span> <span class='inline-text'>{thread.CreatedTimestampString}</span></p>
                         </div>
                     </a>";
                 }
@@ -118,10 +118,10 @@ namespace luaobfuscator_forumsync
                         <div class='threaditem-author'>
                             <img src='{message.Author.AvatarUrl}'>
                             <div>
-                                <p><span>@{message.Author.Username}</span> <span>{message.CreationTimestamp:HH:mm - dd/MM/yyyy}</span></p>
+                                <p><span class='inline-text'>@{message.Author.Username}</span> <span class='inline-text'>{message.CreationTimestamp:HH:mm - dd/MM/yyyy}</span></p>
                             </div>
                         </div>
-                        <span>{Utils.FormatMessageContent(message)}</span>
+                        <span class='message-content'>{Utils.FormatMessageContent(message)}</span>
                     </div>";
                 }
 
@@ -130,10 +130,10 @@ namespace luaobfuscator_forumsync
                     <img src='{thread.AuthorAvatarUrl}' loading='lazy'>
                     <div class='threaditem-author grid'>
                         <h3>{thread.Name}</h3>
-                        <p><span>@{thread.AuthorName}</span> <span>{thread.CreatedTimestampString}</span></p>
+                        <p><span class='inline-text'>@{thread.AuthorName}</span> <span class='inline-text'>{thread.CreatedTimestampString}</span></p>
                     </div>
                     <div class='break'></div>
-                    <span>{Utils.FormatMessageContent(thread.FirstMessage)}</span>
+                    <span class='message-content'>{Utils.FormatMessageContent(thread.FirstMessage)}</span>
                 </a>").Replace("<!--content2-->", htmlStuff).Replace("<!--guildIcon-->", channel.Guild.IconUrl);
 
                 return Results.Content(finalHtml, "text/html");

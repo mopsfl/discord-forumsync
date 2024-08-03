@@ -13,7 +13,11 @@ namespace luaobfuscator_forumsync
             string messageContent = message.Content;
             foreach (var user in message.MentionedUsers) messageContent = ReplaceMentionWithUsername(messageContent, user);
             messageContent = ReplaceCodeBlocks(messageContent);
+            messageContent = ReplaceInlineCodeText(messageContent);
             messageContent = ReplaceEmojis(messageContent);
+            messageContent = ReplaceBoldText(messageContent);
+            messageContent = ReplaceCursiveText(messageContent);
+            messageContent = ReplaceMarkdownUrl(messageContent);
             messageContent = messageContent.Replace("\n", "<br>");
 
             foreach (var attachment in message.Attachments)
@@ -54,11 +58,52 @@ namespace luaobfuscator_forumsync
 
         public static string ReplaceCodeBlocks(string content)
         {
-            string pattern = @"\`+(\w+\n)?([\s\S]*?)\`+";
+            string pattern = @"\`\`\`(\w+\n)?([\s\S]*?)\`\`\`";
             return Regex.Replace(content, pattern, match =>
             {
                 string codeContent = match.Groups[2].Value.Trim();
                 return $"<span class='codeblock'>{codeContent}</span>";
+            });
+        }
+
+        public static string ReplaceInlineCodeText(string content)
+        {
+            string pattern = @"`([^`]+?)`";
+            return Regex.Replace(content, pattern, match =>
+            {
+                string codeContent = match.Groups[1].Value.Trim();
+                return $"<span class='inline-text'>{codeContent}</span>";
+            });
+        }
+
+        public static string ReplaceCursiveText(string content)
+        {
+            string pattern = @"_(?<text>[^_]+?)_|\*(?<text>[^*]+?)\*(?!\*)";
+            return Regex.Replace(content, pattern, match =>
+            {
+                string textContent = match.Groups["text"].Value.Trim();
+                return $"<span class='cursive-text'>{textContent}</span>";
+            });
+        }
+
+        public static string ReplaceBoldText(string content)
+        {
+            string pattern = @"\*\*(?<text>[^*]+?)\*\*";
+            return Regex.Replace(content, pattern, match =>
+            {
+                string textContent = match.Groups["text"].Value.Trim();
+                return $"<span class='bold-text'>{textContent}</span>";
+            });
+        }
+
+        public static string ReplaceMarkdownUrl(string content)
+        {
+            string pattern = @"\[(?<name>\w+)\]\((?<url>https\:\/\/.*)\)";
+            return Regex.Replace(content, pattern, match =>
+            {
+                string url = match.Groups["url"].Value.Trim();
+                string name = match.Groups["name"].Value.Trim();
+                return $"<a href='{url}' target='_blank'>{name}</a>";
             });
         }
 

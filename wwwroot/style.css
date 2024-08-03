@@ -1,5 +1,5 @@
 * {
-    color: white
+    color: white;
 }
 
 body {
@@ -8,6 +8,14 @@ body {
 
 .grid {
     display: grid !important
+}
+
+.cursive-text {
+    font-style: italic;
+}
+
+.bold-text {
+    font-weight: bold;
 }
 
 .container {
@@ -100,8 +108,7 @@ a {
     margin-top: 10px
 }
 
-.threaditem>div>p>span,
-.threaditem-author>div>p>span {
+.inline-text {
     background: #2d2d2d;
     padding: 3px;
     border-radius: 3px;
@@ -137,6 +144,7 @@ a {
     margin-bottom: 5px;
     white-space: pre;
 }
+
 
 .path {
     background: #444;
