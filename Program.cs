@@ -1,7 +1,10 @@
 using DSharpPlus;
 using DSharpPlus.Entities;
+using DSharpPlus.EventArgs;
+using DSharpPlus.Net.WebSocket;
 using System.Text.RegularExpressions;
 using dotenv.net;
+using DSharpPlus.Net;
 
 namespace luaobfuscator_forumsync
 {
@@ -51,17 +54,13 @@ namespace luaobfuscator_forumsync
             DotEnv.Load();
             string? token = Environment.GetEnvironmentVariable("TOKEN");
             if (token == null) { Console.WriteLine("Token is null."); return; }
-            DiscordConfiguration config = new()
-            {
-                Token = token,
-                Intents = DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents
-            }; discordClient = new(config);
 
-            DiscordActivity status = new("Forum", ActivityType.Watching);
-            await discordClient.ConnectAsync(status, UserStatus.Online);
+            DiscordClientBuilder clientBuilder = DiscordClientBuilder.CreateDefault(token, DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents);
+            discordClient = clientBuilder.Build();
 
-            // listen to messageCreate to update messageCache
-            discordClient.MessageCreated += (client, eventArgs) =>
+
+            /*// listen to messageCreate to update messageCache
+            discordClient.han += (client, eventArgs) =>
             {
                 ForumSync.AddNewMessage(eventArgs);
                 return Task.CompletedTask;
@@ -71,7 +70,14 @@ namespace luaobfuscator_forumsync
             {
                 ForumSync.RemovedDeletedMessage(eventArgs);
                 return Task.CompletedTask;
-            };
+            };*/
+
+            clientBuilder.ConfigureEventHandlers(
+                b => b.HandleMessageCreated(async (s, message) =>
+                {
+                    ForumSync.AddNewMessage(message);
+                })
+            );
 
             // everything here is just for the concept obv.
             var builder = WebApplication.CreateBuilder();
@@ -140,6 +146,7 @@ namespace luaobfuscator_forumsync
             });
 
             app.Run();
+            await clientBuilder.ConnectAsync();
             await Task.Delay(-1);
         }
     }

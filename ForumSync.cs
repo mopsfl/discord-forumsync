@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using DSharpPlus;
 using DSharpPlus.Entities;
@@ -15,12 +16,26 @@ namespace luaobfuscator_forumsync
                 if (Program.discordClient == null) return [];
 
                 var threads = new List<ForumThread>();
-                var channel = await Program.discordClient.GetChannelAsync(channelId);
-                if (channel.Type != ChannelType.GuildForum) return [];
+                DiscordChannel channel = await Program.discordClient.GetChannelAsync(channelId);
+                if (channel.Type != DiscordChannelType.GuildForum) return [];
 
                 var fetchTasks = new List<Task>();
+                var guild = await Program.discordClient.GetGuildAsync((ulong)channel.GuildId, false);
 
-                foreach (var forumThread in channel.Threads)
+                // Get active threads (from the whole guild)
+                var activeThreadResult = await guild.ListActiveThreadsAsync();
+
+                var activeThreads = activeThreadResult.Threads
+                    .Where(thread => thread.ParentId == channel.Id)
+                    .ToList();
+
+                DateTimeOffset cutoffDate = DateTimeOffset.UtcNow.AddDays(-7);
+
+                var archivedResult = await channel.ListPublicArchivedThreadsAsync();
+
+                var allThreads = activeThreads.Concat(archivedResult.Threads);
+
+                foreach (var forumThread in allThreads)
                 {
                     // cache all the messages somewhere where you want. ill just do it like this for concept
                     List<DiscordMessage> threadMessages = [];
@@ -38,7 +53,7 @@ namespace luaobfuscator_forumsync
 
                 await Task.WhenAll(fetchTasks);
 
-                foreach (var forumThread in channel.Threads)
+                foreach (var forumThread in allThreads)
                 {
                     if (!messageCache.TryGetValue(forumThread.Id, out var threadMessages))
                     {
@@ -70,7 +85,6 @@ namespace luaobfuscator_forumsync
                         firstMessage: firstMessage
                     ));
                 }
-
                 threads = [.. threads.OrderByDescending(t => t.CreatedTimestamp)];
                 return threads;
             }
@@ -81,9 +95,10 @@ namespace luaobfuscator_forumsync
             }
         }
 
-        public static void AddNewMessage(MessageCreateEventArgs eventArgs)
+        public static void AddNewMessage(MessageCreatedEventArgs eventArgs)
         {
-            if (eventArgs.Channel.Parent.Type != ChannelType.GuildForum) { Debug.WriteLine("ChannelType is not a GuildForum"); return; };
+            if (eventArgs.Channel.Parent.Type != DiscordChannelType.GuildForum) { Debug.WriteLine("ChannelType is not a GuildForum"); return; }
+            ;
             messageCache.TryGetValue(eventArgs.Channel.Id, out var messages);
             if (messages == null) return;
 
@@ -93,10 +108,12 @@ namespace luaobfuscator_forumsync
             return;
         }
 
-        public static void RemovedDeletedMessage(MessageDeleteEventArgs eventArgs)
+        public static void RemovedDeletedMessage(MessageDeletedEventArgs eventArgs)
         {
-            if (eventArgs.Channel.Parent.Type != ChannelType.GuildForum) { Debug.WriteLine("ChannelType is not a GuildForum"); return; };
-            if (messageCache[eventArgs.Channel.Id] == null) { Debug.WriteLine("ChannelId not found in messageCache"); return; };
+            if (eventArgs.Channel.Parent.Type != DiscordChannelType.GuildForum) { Debug.WriteLine("ChannelType is not a GuildForum"); return; }
+            ;
+            if (messageCache[eventArgs.Channel.Id] == null) { Debug.WriteLine("ChannelId not found in messageCache"); return; }
+            ;
 
             Console.WriteLine($"Deleted message in thread {eventArgs.Channel.Id} | {eventArgs.Message.Id}");
             messageCache[eventArgs.Channel.Id].RemoveAt(messageCache[eventArgs.Channel.Id].IndexOf(eventArgs.Message));
@@ -111,10 +128,17 @@ namespace luaobfuscator_forumsync
             var channel = await Program.discordClient.GetChannelAsync(channelId);
             if (channel != null)
             {
-                var messages = await channel.GetMessagesAsync();
-                messageCache[channelId] = [.. messages];
+                var messages = new List<DiscordMessage>();
+
+                await foreach (var message in channel.GetMessagesAsync())
+                {
+                    messages.Add(message);
+                }
+
+                messageCache[channelId] = messages;
             }
         }
+
     }
 
     public class ForumThread(string name, ulong id, ulong ownerId, long createdTimestamp, string createdTimestampString, string authorName, string avatarUrl, IReadOnlyList<DiscordMessage> messages, DiscordMessage firstMessage)
