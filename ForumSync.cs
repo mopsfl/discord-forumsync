@@ -9,6 +9,7 @@ namespace luaobfuscator_forumsync
     public class ForumSync
     {
         public static readonly Dictionary<ulong, List<DiscordMessage>> messageCache = [];
+        public static readonly Dictionary<ulong, List<DiscordThreadChannel>> threadCache = [];
         public async static Task<List<ForumThread>?> FetchForumData(ulong channelId)
         {
             try
@@ -22,18 +23,7 @@ namespace luaobfuscator_forumsync
                 var fetchTasks = new List<Task>();
                 var guild = await Program.discordClient.GetGuildAsync((ulong)channel.GuildId, false);
 
-                // Get active threads (from the whole guild)
-                var activeThreadResult = await guild.ListActiveThreadsAsync();
-
-                var activeThreads = activeThreadResult.Threads
-                    .Where(thread => thread.ParentId == channel.Id)
-                    .ToList();
-
-                DateTimeOffset cutoffDate = DateTimeOffset.UtcNow.AddDays(-7);
-
-                var archivedResult = await channel.ListPublicArchivedThreadsAsync();
-
-                var allThreads = activeThreads.Concat(archivedResult.Threads);
+                var allThreads = await GetCachedThreadsAsync(channel);
 
                 foreach (var forumThread in allThreads)
                 {
@@ -94,6 +84,30 @@ namespace luaobfuscator_forumsync
                 return null;
             }
         }
+
+        public async static Task<List<DiscordThreadChannel>> GetCachedThreadsAsync(DiscordChannel channel)
+        {
+            if (threadCache.TryGetValue(channel.Id, out var cachedThreads))
+            {
+                return cachedThreads;
+            }
+
+            // Fetch active threads from guild
+            var activeThreadResult = await channel.Guild.ListActiveThreadsAsync();
+            var activeThreads = activeThreadResult.Threads
+                .Where(thread => thread.ParentId == channel.Id)
+                .ToList();
+
+            // Fetch archived threads
+            var archivedResult = await channel.ListPublicArchivedThreadsAsync();
+            var allThreads = activeThreads.Concat(archivedResult.Threads).ToList();
+
+            // Cache the result
+            threadCache[channel.Id] = allThreads;
+
+            return allThreads;
+        }
+
 
         public static void AddNewMessage(MessageCreatedEventArgs eventArgs)
         {

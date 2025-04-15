@@ -55,31 +55,26 @@ namespace luaobfuscator_forumsync
             string? token = Environment.GetEnvironmentVariable("TOKEN");
             if (token == null) { Console.WriteLine("Token is null."); return; }
 
-            DiscordClientBuilder clientBuilder = DiscordClientBuilder.CreateDefault(token, DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents);
-            discordClient = clientBuilder.Build();
+            DiscordClientBuilder clientBuilder = DiscordClientBuilder.CreateDefault(token, DiscordIntents.AllUnprivileged |
+                DiscordIntents.MessageContents |
+                DiscordIntents.GuildMessages |
+                DiscordIntents.GuildMessageTyping |
+                DiscordIntents.Guilds
+            );
 
-
-            /*// listen to messageCreate to update messageCache
-            discordClient.han += (client, eventArgs) =>
-            {
-                ForumSync.AddNewMessage(eventArgs);
-                return Task.CompletedTask;
-            };
-
-            discordClient.MessageDeleted += (client, eventArgs) =>
-            {
-                ForumSync.RemovedDeletedMessage(eventArgs);
-                return Task.CompletedTask;
-            };*/
-
+            // TODO: fix these events not triggering ;-;
             clientBuilder.ConfigureEventHandlers(
                 b => b.HandleMessageCreated(async (s, message) =>
                 {
+                    Console.WriteLine(message);
                     ForumSync.AddNewMessage(message);
+                }).HandleThreadCreated(async (s, thread) =>
+                {
+                    Console.WriteLine(thread);
+                    ForumSync.threadCache.Clear();
                 })
             );
 
-            // everything here is just for the concept obv.
             var builder = WebApplication.CreateBuilder();
             var app = builder.Build();
 
@@ -105,7 +100,6 @@ namespace luaobfuscator_forumsync
                 string finalHtml = htmlContent1.Replace("<!--content-->", htmlStuff).Replace("<!--guildIcon-->", channel.Guild.IconUrl);
                 return Results.Content(finalHtml, "text/html");
             });
-
             app.MapGet("/forum/{channelId}/{threadId}", async (ulong channelId, ulong threadId) =>
             {
                 var data = await ForumSync.FetchForumData(channelId);
@@ -144,9 +138,15 @@ namespace luaobfuscator_forumsync
 
                 return Results.Content(finalHtml, "text/html");
             });
-
             app.Run();
-            await clientBuilder.ConnectAsync();
+
+            discordClient = clientBuilder.Build();
+            await discordClient.ConnectAsync();
+            await discordClient.UpdateStatusAsync(
+                new DiscordActivity("Forums", DiscordActivityType.Watching),
+                DiscordUserStatus.Online
+            );
+
             await Task.Delay(-1);
         }
     }
