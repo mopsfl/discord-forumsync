@@ -24,11 +24,11 @@ namespace luaobfuscator_forumsync
             {
                 if (attachment.ProxyUrl != null && attachment.Width != null)
                 {
-                    messageContent += $"<img src='{attachment.ProxyUrl}' class='attachment-img' loading='lazy'>";
+                    messageContent += $"<img src='{attachment.ProxyUrl}' class='attachment-img' loading='lazy' attachment-id='{attachment.Id}'>";
                 }
                 else if (attachment.Width == null && attachment.FileName != null)
                 {
-                    messageContent += @$"<div class='attachment-file'>
+                    messageContent += @$"<div class='attachment-file' attachment-id='{attachment.Id}'>
                         <img src='/fileimg.png'>
                         <div class='attachment-file-info'>
                             <a href='{attachment.Url}' target='_blank'>{attachment.FileName}</a>

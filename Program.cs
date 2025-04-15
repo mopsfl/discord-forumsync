@@ -5,6 +5,7 @@ using DSharpPlus.Net.WebSocket;
 using System.Text.RegularExpressions;
 using dotenv.net;
 using DSharpPlus.Net;
+using Newtonsoft.Json.Serialization;
 
 namespace luaobfuscator_forumsync
 {
@@ -55,34 +56,32 @@ namespace luaobfuscator_forumsync
             string? token = Environment.GetEnvironmentVariable("TOKEN");
             if (token == null) { Console.WriteLine("Token is null."); return; }
 
-            DiscordClientBuilder clientBuilder = DiscordClientBuilder.CreateDefault(token, DiscordIntents.AllUnprivileged |
-                DiscordIntents.MessageContents |
-                DiscordIntents.GuildMessages |
-                DiscordIntents.GuildMessageTyping |
-                DiscordIntents.Guilds
-            );
-
-            // TODO: fix these events not triggering ;-;
-            clientBuilder.ConfigureEventHandlers(
+            DiscordClientBuilder clientBuilder = DiscordClientBuilder.CreateDefault(token, DiscordIntents.All)
+            .ConfigureEventHandlers(
                 b => b.HandleMessageCreated(async (s, message) =>
                 {
-                    Console.WriteLine(message);
                     ForumSync.AddNewMessage(message);
                 }).HandleThreadCreated(async (s, thread) =>
                 {
-                    Console.WriteLine(thread);
-                    ForumSync.threadCache.Clear();
+                    ForumSync.threadCache.Clear(); // TODO: dont clear lol
                 })
-            );
+            ).SetLogLevel(LogLevel.Debug);
+            discordClient = clientBuilder.Build();
+            await clientBuilder.ConnectAsync();
 
             var builder = WebApplication.CreateBuilder();
             var app = builder.Build();
 
             app.UseStaticFiles();
+            app.MapGet("/", async () =>
+            {
+                return Results.Ok();
+            });
             app.MapGet("/forum/{channelId}", async (ulong channelId) =>
             {
                 var data = await ForumSync.FetchForumData(channelId);
                 if (data == null) return Results.NotFound("Channel not found.");
+                if (discordClient == null) return Results.InternalServerError("internal error! discord client not set up.");
                 DiscordChannel channel = await discordClient.GetChannelAsync(channelId);
 
                 string htmlStuff = $"<a href='/forum/{channelId}' class='path'>{channel.Name}</a>";
@@ -112,16 +111,18 @@ namespace luaobfuscator_forumsync
 
                 foreach (var message in thread.Messages)
                 {
-                    if (message.Id == thread.FirstMessage?.Id || Utils.ValidateMessage(message) == false) continue; // skip first message wich is the thread content yk
+                    if (message.Id == thread.FirstMessage?.Id || Utils.ValidateMessage(message) == false) continue;
+                    string authorAvatarUrl = message.Author?.AvatarUrl ?? message.Author?.DefaultAvatarUrl ?? "";
+                    string authorUsername = message.Author?.Username ?? "Deleted User";
 
-                    htmlStuff += $@"<div class='threaditem grid'>
+                    htmlStuff += $@"<div class='threaditem grid' id='{message.Id}'>
                         <div class='threaditem-author'>
-                            <img src='{message.Author.AvatarUrl}'>
+                            <img src='{authorAvatarUrl}'>
                             <div>
-                                <p><span class='inline-text'>@{message.Author.Username}</span> <span class='inline-text'>{message.CreationTimestamp:HH:mm - dd/MM/yyyy}</span></p>
+                                <p><span class='inline-text'>@{authorUsername}</span> <span class='inline-text'>{message.CreationTimestamp:HH:mm - dd/MM/yyyy}</span></p>
                             </div>
                         </div>
-                        <span class='message-content'>{Utils.FormatMessageContent(message)}</span>
+                        <span class='message-content''>{Utils.FormatMessageContent(message)}</span>
                     </div>";
                 }
 
@@ -140,13 +141,7 @@ namespace luaobfuscator_forumsync
             });
             app.Run();
 
-            discordClient = clientBuilder.Build();
-            await discordClient.ConnectAsync();
-            await discordClient.UpdateStatusAsync(
-                new DiscordActivity("Forums", DiscordActivityType.Watching),
-                DiscordUserStatus.Online
-            );
-
+            await discordClient.ConnectAsync(new DiscordActivity("Forums", DiscordActivityType.Watching), DiscordUserStatus.Online);
             await Task.Delay(-1);
         }
     }

@@ -92,17 +92,14 @@ namespace luaobfuscator_forumsync
                 return cachedThreads;
             }
 
-            // Fetch active threads from guild
             var activeThreadResult = await channel.Guild.ListActiveThreadsAsync();
             var activeThreads = activeThreadResult.Threads
                 .Where(thread => thread.ParentId == channel.Id)
                 .ToList();
 
-            // Fetch archived threads
             var archivedResult = await channel.ListPublicArchivedThreadsAsync();
             var allThreads = activeThreads.Concat(archivedResult.Threads).ToList();
 
-            // Cache the result
             threadCache[channel.Id] = allThreads;
 
             return allThreads;
