@@ -64,6 +64,7 @@ namespace luaobfuscator_forumsync
                 }).HandleThreadCreated(async (s, thread) =>
                 {
                     ForumSync.threadCache.Clear(); // TODO: dont clear lol
+                    //await thread.Thread.SendMessageAsync($"sync debug: EventHandlers -> HandleThreadCreated | id: {thread.Thread.Id} | type: {thread.Thread.Type}");
                 })
             ).SetLogLevel(LogLevel.Debug);
             discordClient = clientBuilder.Build();
@@ -75,8 +76,35 @@ namespace luaobfuscator_forumsync
             app.UseStaticFiles();
             app.MapGet("/", async () =>
             {
-                return Results.Ok();
+                string htmlStuff = $"<a href='/' class='path'>Servers</a>";
+                await foreach (var guild in discordClient.GetGuildsAsync())
+                {
+                    htmlStuff += $@"<a class='threaditem'>
+                        <img src='{guild.IconUrl ?? "/unknown.png"}' loading='lazy'>
+                        <div>
+                            <h3>{guild.Name}</h3>
+                            <small class='gray'>{guild.Id}</small>
+                        </div>
+                        <!--{guild.Id}-->
+                    </a>";
+
+                    List<DiscordChannel> forumChannels = await Utils.GetAllGuildForums(guild);
+                    string forumElements = "";
+
+                    foreach (var channel in forumChannels)
+                    {
+                        forumElements += $@"<a class='threaditem subitem' href='/forum/{channel.Id}'>
+                            <span>{channel.Name}</span>
+                        </a>";
+                    }
+
+                    htmlStuff = htmlStuff.Replace($@"<!--{guild.Id}-->", forumElements);
+                }
+
+                string finalHtml = htmlContent1.Replace("<!--content-->", htmlStuff).Replace("<!--guildIcon-->", "");
+                return Results.Content(finalHtml, "text/html");
             });
+            app.MapGet("/forum", async () => { return Results.Redirect("/"); });
             app.MapGet("/forum/{channelId}", async (ulong channelId) =>
             {
                 var data = await ForumSync.FetchForumData(channelId);
@@ -84,7 +112,10 @@ namespace luaobfuscator_forumsync
                 if (discordClient == null) return Results.InternalServerError("internal error! discord client not set up.");
                 DiscordChannel channel = await discordClient.GetChannelAsync(channelId);
 
-                string htmlStuff = $"<a href='/forum/{channelId}' class='path'>{channel.Name}</a>";
+                string htmlStuff = $@"<div style='display: flex; gap: 5px'>
+                    <a href='/forum' class='path'>{channel.Guild.Name}</a>
+                    <a href='/forum/{channelId}' class='path'>{channel.Name}</a>
+                </div>";
                 foreach (var thread in data)
                 {
                     htmlStuff += $@"<a class='threaditem' href='/forum/{channelId}/{thread.Id}'>
@@ -126,7 +157,11 @@ namespace luaobfuscator_forumsync
                     </div>";
                 }
 
-                string finalHtml = htmlContent2.Replace("<!--content1-->", $@"<div style='display: flex; gap: 5px'><a href='/forum/{channelId}' class='path'>{channel.Name}</a> <a href='/forum/{channelId}/{thread.Id}' class='path'>{thread.Name}</a></div>
+                string finalHtml = htmlContent2.Replace("<!--content1-->", $@"<div style='display: flex; gap: 5px'>
+                    <a href='/forum' class='path'>{channel.Guild.Name}</a>
+                    <a href='/forum/{channelId}' class='path'>{channel.Name}</a>
+                    <a href='/forum/{channelId}/{thread.Id}' class='path'>{thread.Name}</a>
+                </div>
                 <a class='threaditem' style='margin-bottom: 10px'>
                     <img src='{thread.AuthorAvatarUrl}' loading='lazy'>
                     <div class='threaditem-author grid'>

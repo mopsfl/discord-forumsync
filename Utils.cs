@@ -43,12 +43,25 @@ namespace luaobfuscator_forumsync
                 messageContent = messageContent.Replace(role.Mention, $"<span class='mention mention-role' style='background: {ConvertHexToRgba(role.Color.ToString(), 0.5f)}'>@{role.Name}</span>");
             }
 
-            foreach (var sticker in message.Stickers)
+            foreach (var sticker in message.Stickers ?? [])
             {
                 if (sticker.StickerUrl != null) messageContent += $"<img src='{sticker.BannerUrl}' class='attachment-img' loading='lazy'>";
             }
 
             return messageContent;
+        }
+
+        public async static Task<List<DiscordChannel>> GetAllGuildForums(DiscordGuild guild)
+        {
+            var channels = await guild.GetChannelsAsync();
+            List<DiscordChannel> forumChannels = [];
+
+            foreach (var channel in channels)
+            {
+                if (channel.Type == DiscordChannelType.GuildForum) forumChannels.Add(channel);
+            }
+
+            return forumChannels;
         }
 
         public static string ReplaceMentionWithUsername(string messageContent, DiscordUser user)

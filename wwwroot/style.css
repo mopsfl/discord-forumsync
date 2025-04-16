@@ -10,6 +10,10 @@ body {
     display: grid !important
 }
 
+.gray {
+    color: gray;
+}
+
 .cursive-text {
     font-style: italic;
 }
@@ -36,6 +40,10 @@ body {
     border-radius: 3px;
 }
 
+.subitem {
+    margin-left: 30px;
+}
+
 .threaditem.grid>span {
     margin-top: 10px
 }
@@ -50,6 +58,7 @@ img:not(.attachment-img) {
     width: 50px;
     height: 50px;
     margin-right: 10px;
+    border-radius: 3px;
 }
 
 .attachment-img {
