@@ -2,23 +2,21 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using DSharpPlus.Entities;
+using FastCache;
+using Markdig;
 
 namespace luaobfuscator_forumsync
 {
-    public class Utils
+    public partial class Utils
     {
         public static string FormatMessageContent(DiscordMessage message)
         {
             if (message == null) return "";
-            string messageContent = message.Content;
+            string messageContent = HtmlFilterRegex().Replace(message.Content, string.Empty);
+
             foreach (var user in message.MentionedUsers) messageContent = ReplaceMentionWithUsername(messageContent, user);
-            messageContent = ReplaceCodeBlocks(messageContent);
-            messageContent = ReplaceInlineCodeText(messageContent);
             messageContent = ReplaceEmojis(messageContent);
-            messageContent = ReplaceBoldText(messageContent);
-            messageContent = ReplaceCursiveText(messageContent);
-            messageContent = ReplaceMarkdownUrl(messageContent);
-            messageContent = messageContent.Replace("\n", "<br>");
+            messageContent = Markdown.ToHtml(messageContent, new MarkdownPipelineBuilder().UseAdvancedExtensions().Build());
 
             foreach (var attachment in message.Attachments)
             {
@@ -53,16 +51,44 @@ namespace luaobfuscator_forumsync
 
         public async static Task<List<DiscordChannel>> GetAllGuildForums(DiscordGuild guild)
         {
+            if (Cached<List<DiscordChannel>>.TryGet(guild.Id, out var cachedChannels))
+            {
+                return cachedChannels;
+            }
+
             var channels = await guild.GetChannelsAsync();
             List<DiscordChannel> forumChannels = [];
 
             foreach (var channel in channels)
             {
-                if (channel.Type == DiscordChannelType.GuildForum) forumChannels.Add(channel);
+                if (channel.Type == DiscordChannelType.GuildForum)
+                    forumChannels.Add(channel);
             }
 
+            Cached<List<DiscordChannel>>.Save(guild.Id, forumChannels, TimeSpan.FromMinutes(60));
             return forumChannels;
         }
+
+        public async static Task<List<DiscordGuild>> GetAllGuilds()
+        {
+            if (Program.discordClient == null) return [];
+            if (Cached<List<DiscordGuild>>.TryGet("guilds", out var cachedGuilds))
+            {
+                return cachedGuilds;
+            }
+
+            List<DiscordGuild> guildList = [];
+
+            await foreach (var guild in Program.discordClient.GetGuildsAsync())
+            {
+                guildList.Add(guild);
+            }
+
+            Cached<List<DiscordGuild>>.Save("guilds", guildList, TimeSpan.FromMinutes(60));
+
+            return guildList;
+        }
+
 
         public static string ReplaceMentionWithUsername(string messageContent, DiscordUser user)
         {
@@ -158,5 +184,8 @@ namespace luaobfuscator_forumsync
 
             return $"{bytes} bytes";
         }
+
+        [GeneratedRegex("<(?!@|#)[^>]+?>")]
+        private static partial Regex HtmlFilterRegex();
     }
 }

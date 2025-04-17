@@ -27,7 +27,6 @@ namespace luaobfuscator_forumsync
 
                 foreach (var forumThread in allThreads)
                 {
-                    // cache all the messages somewhere where you want. ill just do it like this for concept
                     List<DiscordMessage> threadMessages = [];
                     if (!messageCache.TryGetValue(forumThread.Id, out var cachedMessages))
                     {

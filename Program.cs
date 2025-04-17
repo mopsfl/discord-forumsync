@@ -1,11 +1,7 @@
 using DSharpPlus;
 using DSharpPlus.Entities;
-using DSharpPlus.EventArgs;
-using DSharpPlus.Net.WebSocket;
 using System.Text.RegularExpressions;
 using dotenv.net;
-using DSharpPlus.Net;
-using Newtonsoft.Json.Serialization;
 
 namespace luaobfuscator_forumsync
 {
@@ -61,12 +57,21 @@ namespace luaobfuscator_forumsync
                 b => b.HandleMessageCreated(async (s, message) =>
                 {
                     ForumSync.AddNewMessage(message);
-                }).HandleThreadCreated(async (s, thread) =>
+                })
+                .HandleMessageDeleted(async (e, message) =>
+                {
+                    ForumSync.RemovedDeletedMessage(message);
+                })
+                .HandleMessageUpdated(async (s, message) =>
+                {
+                    //Console.WriteLine("TODO: HandleMessageUpdated");
+                })
+                .HandleThreadCreated(async (s, thread) =>
                 {
                     ForumSync.threadCache.Clear(); // TODO: dont clear lol
-                    //await thread.Thread.SendMessageAsync($"sync debug: EventHandlers -> HandleThreadCreated | id: {thread.Thread.Id} | type: {thread.Thread.Type}");
                 })
             ).SetLogLevel(LogLevel.Debug);
+
             discordClient = clientBuilder.Build();
             await clientBuilder.ConnectAsync();
 
@@ -77,7 +82,9 @@ namespace luaobfuscator_forumsync
             app.MapGet("/", async () =>
             {
                 string htmlStuff = $"<a href='/' class='path'>Servers</a>";
-                await foreach (var guild in discordClient.GetGuildsAsync())
+                List<DiscordGuild> guilds = await Utils.GetAllGuilds();
+
+                foreach (var guild in guilds)
                 {
                     htmlStuff += $@"<a class='threaditem'>
                         <img src='{guild.IconUrl ?? "/unknown.png"}' loading='lazy'>
@@ -91,14 +98,20 @@ namespace luaobfuscator_forumsync
                     List<DiscordChannel> forumChannels = await Utils.GetAllGuildForums(guild);
                     string forumElements = "";
 
-                    foreach (var channel in forumChannels)
+                    if (forumChannels != null)
                     {
-                        forumElements += $@"<a class='threaditem subitem' href='/forum/{channel.Id}'>
-                            <span>{channel.Name}</span>
-                        </a>";
-                    }
+                        foreach (var channel in forumChannels)
+                        {
+                            forumElements += $@"<a class='threaditem subitem' href='/forum/{channel.Id}'>
+                                <span>{channel.Name}</span>
+                            </a>";
+                        }
 
-                    htmlStuff = htmlStuff.Replace($@"<!--{guild.Id}-->", forumElements);
+                        htmlStuff = htmlStuff.Replace($@"<!--{guild.Id}-->", forumElements);
+                    }
+                    else htmlStuff = htmlStuff.Replace($@"<!--{guild.Id}-->", $@"<a class='threaditem subitem'>
+                                <span>unable to load forums</span>
+                            </a>");
                 }
 
                 string finalHtml = htmlContent1.Replace("<!--content-->", htmlStuff).Replace("<!--guildIcon-->", "");
@@ -136,7 +149,7 @@ namespace luaobfuscator_forumsync
                 if (data == null) return Results.NotFound("Channel not found.");
                 DiscordChannel channel = await discordClient.GetChannelAsync(channelId);
 
-                string htmlStuff = "";
+                string htmlStuff = $@"<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/monokai.min.css'><script src='https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js'></script><script>hljs.highlightAll();</script>";
                 var thread = data.FirstOrDefault(t => t.Id == threadId);
                 if (thread == null) return Results.NotFound("Thread not found.");
 
@@ -153,7 +166,7 @@ namespace luaobfuscator_forumsync
                                 <p><span class='inline-text'>@{authorUsername}</span> <span class='inline-text'>{message.CreationTimestamp:HH:mm - dd/MM/yyyy}</span></p>
                             </div>
                         </div>
-                        <span class='message-content''>{Utils.FormatMessageContent(message)}</span>
+                        <span class='message-content'>{Utils.FormatMessageContent(message)}</span>
                     </div>";
                 }
 
