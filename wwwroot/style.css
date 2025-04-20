@@ -1,9 +1,11 @@
 * {
     color: white;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
 
 body {
-    background: #1c1c1c
+    background: #1a1a1a;
 }
 
 .grid {
@@ -29,7 +31,7 @@ body {
 }
 
 .threaditem {
-    background: #444;
+    background-color: #2b2b2b;
     color: white;
     padding: 10px;
     font-family: Arial;
@@ -37,7 +39,24 @@ body {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    border-radius: 3px;
+    border-radius: 4px;
+    outline: solid 1px #464646;
+    box-shadow: black 2px 1px 5px 1px;
+    transition: background-color .2s;
+}
+
+.threaditem:nth-of-type(1) {
+    border-top-left-radius: 0;
+}
+
+.threaditem[href]:not([href=""]):hover {
+    background-color: #414141;
+    outline: solid 1px #707070;
+}
+
+.threaditem[href]:not([href=""]):active {
+    background-color: #2b2b2b;
+    outline: solid 1px #464646;
 }
 
 .subitem {
@@ -63,7 +82,8 @@ img:not(.attachment-img) {
 }
 
 a {
-    color: #009fff
+    color: #009fff;
+    font-family: Arial;
 }
 
 .attachment-file {
@@ -139,6 +159,9 @@ a {
 }
 
 code {
+    overflow: auto;
+    scrollbar-width: thin;
+    position: relative;
     background: #262626 !important;
     display: block;
     padding: 10px;
@@ -148,12 +171,44 @@ code {
     margin-top: 5px;
     margin-bottom: 5px;
     white-space: pre;
+    max-height: 350px;
+    /*box-shadow: inset 0px -10px 10px -4px black;*/
 }
 
+code::after {
+    position: absolute;
+    content: 'content_copy';
+    font-family: 'Material Symbols Outlined';
+    font-size: 20px;
+    border-radius: 2px;
+    top: 5px;
+    right: 5px;
+    height: 25px;
+    width: 25px;
+    opacity: 0;
+    cursor: pointer;
+    padding-bottom: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: opacity .5s;
+}
+
+code:hover::after {
+    opacity: 1;
+}
+
+.viewmore {
+    margin-top: 5px;
+    text-decoration: none;
+}
 
 .path {
-    background: #444;
+    text-decoration: none;
+    background: #2b2b2b;
     width: max-content;
+    outline: solid 1px #464646;
+    box-shadow: black 2px 1px 5px 1px;
     padding: 5px;
     font-family: Arial;
     border-top-left-radius: 4px;
@@ -163,6 +218,18 @@ code {
     text-wrap: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
+    user-select: none;
+    transition: background-color .2s;
+}
+
+.path:hover {
+    background-color: #414141;
+    outline: solid 1px #5c5c5c;
+}
+
+.path:active {
+    background-color: #2b2b2b;
+    outline: solid 1px #464646;
 }
 
 .message-content>*:last-child {

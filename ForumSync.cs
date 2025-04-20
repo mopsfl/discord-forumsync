@@ -10,12 +10,11 @@ namespace luaobfuscator_forumsync
     {
         public static readonly Dictionary<ulong, List<DiscordMessage>> messageCache = [];
         public static readonly Dictionary<ulong, List<DiscordThreadChannel>> threadCache = [];
-        public async static Task<List<ForumThread>?> FetchForumData(ulong channelId)
+        /*public async static Task<List<ForumThread>?> FetchForumData(ulong channelId)
         {
             try
             {
                 if (Program.discordClient == null) return [];
-
                 var threads = new List<ForumThread>();
                 DiscordChannel channel = await Program.discordClient.GetChannelAsync(channelId);
                 if (channel.Type != DiscordChannelType.GuildForum) return [];
@@ -23,7 +22,7 @@ namespace luaobfuscator_forumsync
                 var fetchTasks = new List<Task>();
                 var guild = await Program.discordClient.GetGuildAsync((ulong)channel.GuildId, false);
 
-                var allThreads = await GetCachedThreadsAsync(channel);
+                var allThreads = await GetThreadsAsync(channel);
 
                 foreach (var forumThread in allThreads)
                 {
@@ -82,28 +81,7 @@ namespace luaobfuscator_forumsync
                 Console.WriteLine(error);
                 return null;
             }
-        }
-
-        public async static Task<List<DiscordThreadChannel>> GetCachedThreadsAsync(DiscordChannel channel)
-        {
-            if (threadCache.TryGetValue(channel.Id, out var cachedThreads))
-            {
-                return cachedThreads;
-            }
-
-            var activeThreadResult = await channel.Guild.ListActiveThreadsAsync();
-            var activeThreads = activeThreadResult.Threads
-                .Where(thread => thread.ParentId == channel.Id)
-                .ToList();
-
-            var archivedResult = await channel.ListPublicArchivedThreadsAsync();
-            var allThreads = activeThreads.Concat(archivedResult.Threads).ToList();
-
-            threadCache[channel.Id] = allThreads;
-
-            return allThreads;
-        }
-
+        }*/
 
         public static void AddNewMessage(MessageCreatedEventArgs eventArgs)
         {

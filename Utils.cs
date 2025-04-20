@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using AngleSharp.Common;
 using DSharpPlus.Entities;
 using FastCache;
 using Markdig;
@@ -49,46 +51,123 @@ namespace luaobfuscator_forumsync
             return messageContent;
         }
 
-        public async static Task<List<DiscordChannel>> GetAllGuildForums(DiscordGuild guild)
+        public async static Task<List<DiscordForumChannel>> GetAllGuildForums(DiscordGuild guild)
         {
-            if (Cached<List<DiscordChannel>>.TryGet(guild.Id, out var cachedChannels))
+            if (Cached<List<DiscordForumChannel>>.TryGet(guild.Id, out var cachedChannels))
             {
                 return cachedChannels;
             }
 
             var channels = await guild.GetChannelsAsync();
-            List<DiscordChannel> forumChannels = [];
+            List<DiscordForumChannel> forumChannels = [];
 
             foreach (var channel in channels)
             {
-                if (channel.Type == DiscordChannelType.GuildForum)
-                    forumChannels.Add(channel);
+                if (channel.Type == DiscordChannelType.GuildForum) forumChannels.Add((DiscordForumChannel)channel);
             }
 
-            Cached<List<DiscordChannel>>.Save(guild.Id, forumChannels, TimeSpan.FromMinutes(60));
+            Cached<List<DiscordForumChannel>>.Save(guild.Id, forumChannels, TimeSpan.FromMinutes(60));
+            Console.WriteLine($"fetched {forumChannels.Count} forums for guild '{guild.Id}'");
             return forumChannels;
         }
 
-        public async static Task<List<DiscordGuild>> GetAllGuilds()
+        public async static Task<List<DiscordThreadChannel>?> GetThreadsAsync(DiscordChannel channel)
         {
-            if (Program.discordClient == null) return [];
+            if (Program.discordClient == null) return null;
+            if (Cached<List<DiscordThreadChannel>>.TryGet(channel.Id, out var threads))
+            {
+                return threads;
+            }
+
+            List<DiscordThreadChannel> fetchedThreads = [];
+            var activeThreadsResult = await channel.Guild.ListActiveThreadsAsync();
+            var archivedThreadsResult = await channel.ListPublicArchivedThreadsAsync();
+
+            fetchedThreads = [.. activeThreadsResult.Threads.Where(thread => thread.ParentId == channel.Id), .. archivedThreadsResult.Threads.ToList()];
+
+            Cached<List<DiscordThreadChannel>>.Save(channel.Id, fetchedThreads, TimeSpan.FromMinutes(60));
+            Console.WriteLine($"fetched {fetchedThreads.Count} threads for channel '{channel.Id}'");
+
+            return fetchedThreads;
+        }
+
+        public async static Task<DiscordGuild?> GetGuildAsync(ulong guildId)
+        {
+            if (Program.discordClient == null) return null;
+
+            if (Cached<DiscordGuild>.TryGet(guildId, out var guild))
+            {
+                return guild;
+            }
+
+            DiscordGuild fetchedGuild = await Program.discordClient.GetGuildAsync(guildId);
+
+            if (fetchedGuild != null)
+            {
+                Cached<DiscordGuild>.Save(guildId, fetchedGuild, TimeSpan.FromMinutes(60));
+            }
+
+            Console.WriteLine($"fetched guild '{guildId}'");
+            return fetchedGuild;
+        }
+
+        public async static Task<DiscordChannel?> GetChannelAsync(ulong channelId)
+        {
+            if (Program.discordClient == null) return null;
+
+            if (Cached<DiscordChannel>.TryGet(channelId, out var channel))
+            {
+                return channel;
+            }
+
+            DiscordChannel fetchedChannel = await Program.discordClient.GetChannelAsync(channelId);
+
+            Cached<DiscordChannel>.Save(channelId, fetchedChannel, TimeSpan.FromMinutes(60));
+            Console.WriteLine($"fetched channel '{channelId}'");
+
+            return fetchedChannel;
+        }
+
+        public async static Task<List<DiscordGuild>?> GetAllGuildsAsnyc()
+        {
+            if (Program.discordClient == null) return null;
             if (Cached<List<DiscordGuild>>.TryGet("guilds", out var cachedGuilds))
             {
                 return cachedGuilds;
             }
 
-            List<DiscordGuild> guildList = [];
+            List<DiscordGuild> guilds = [];
 
             await foreach (var guild in Program.discordClient.GetGuildsAsync())
             {
-                guildList.Add(guild);
+                guilds.Add(guild);
             }
 
-            Cached<List<DiscordGuild>>.Save("guilds", guildList, TimeSpan.FromMinutes(60));
+            Cached<List<DiscordGuild>>.Save("guilds", guilds, TimeSpan.FromMinutes(60));
+            Console.WriteLine($"fetched {guilds.Count} guilds");
 
-            return guildList;
+            return guilds;
         }
 
+        public async static Task<DiscordUser?> GetUserAsync(ulong userId)
+        {
+            if (Program.discordClient == null) return null;
+
+            if (Cached<DiscordUser>.TryGet(userId, out var guild))
+            {
+                return guild;
+            }
+
+            DiscordUser fetchedUser = await Program.discordClient.GetUserAsync(userId);
+
+            if (fetchedUser != null)
+            {
+                Cached<DiscordUser>.Save(userId, fetchedUser, TimeSpan.FromMinutes(60));
+            }
+
+            Console.WriteLine($"fetched user '{userId}' | '{fetchedUser?.Username}'");
+            return fetchedUser;
+        }
 
         public static string ReplaceMentionWithUsername(string messageContent, DiscordUser user)
         {

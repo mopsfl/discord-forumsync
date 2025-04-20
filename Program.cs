@@ -3,6 +3,11 @@ using DSharpPlus.Entities;
 using System.Text.RegularExpressions;
 using dotenv.net;
 
+// TODO: only fetch message from thread when required (dont fetch all at once)
+//       use FastCache for messages
+//       add handler for message editing
+//       fix buggy thread rendering (example: http://localhost:5046/forum/1207274943004282900/1284499655924908062)
+
 namespace luaobfuscator_forumsync
 {
     public sealed class Program
@@ -20,6 +25,10 @@ namespace luaobfuscator_forumsync
             <title>Forum Sync Test</title>
             <link rel='stylesheet' href='/style.css'>
             <link rel='icon' type='image/x-icon' href='<!--guildIcon-->'>
+            <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/monokai.min.css'>
+            <link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0' />
+            <script src='https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js'></script>
+            <script>hljs.highlightAll();</script>
         </head>
         <body>
         <div class='container'>
@@ -27,48 +36,39 @@ namespace luaobfuscator_forumsync
         </div>
         </body>
         </html>";
-        private static readonly string htmlContent2 = @"<!DOCTYPE html>
-        <html lang='en'>
-        
-        <head>
-            <meta charset='UTF-8'>
-            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-            <title>Forum Sync Test</title>
-            <link rel='stylesheet' href='/style.css'>
-            <link rel='icon' type='image/x-icon' href='<!--guildIcon-->'>
-        </head>
-        
-        <body>
-        <div class='container'>
-            <!--content1-->
-            <!--content2-->
-        </div>
-        </body>
-        
-        </html>";
+
         public static async Task Main()
         {
             DotEnv.Load();
             string? token = Environment.GetEnvironmentVariable("TOKEN");
-            if (token == null) { Console.WriteLine("Token is null."); return; }
+            if (token == null)
+            {
+                Console.WriteLine("Please enter your bot token:");
+                token = Console.ReadLine();
+                if (token == null) return;
+            }
 
             DiscordClientBuilder clientBuilder = DiscordClientBuilder.CreateDefault(token, DiscordIntents.All)
             .ConfigureEventHandlers(
-                b => b.HandleMessageCreated(async (s, message) =>
+                b => b.HandleMessageCreated((s, message) =>
                 {
-                    ForumSync.AddNewMessage(message);
+                    Console.WriteLine(message);
+                    return Task.CompletedTask;
                 })
-                .HandleMessageDeleted(async (e, message) =>
+                .HandleMessageDeleted((e, message) =>
                 {
-                    ForumSync.RemovedDeletedMessage(message);
+                    Console.WriteLine(message);
+                    return Task.CompletedTask;
                 })
-                .HandleMessageUpdated(async (s, message) =>
+                .HandleMessageUpdated((s, message) =>
                 {
                     //Console.WriteLine("TODO: HandleMessageUpdated");
+                    return Task.CompletedTask;
                 })
-                .HandleThreadCreated(async (s, thread) =>
+                .HandleThreadCreated((s, thread) =>
                 {
                     ForumSync.threadCache.Clear(); // TODO: dont clear lol
+                    return Task.CompletedTask;
                 })
             ).SetLogLevel(LogLevel.Debug);
 
@@ -79,10 +79,13 @@ namespace luaobfuscator_forumsync
             var app = builder.Build();
 
             app.UseStaticFiles();
+
             app.MapGet("/", async () =>
             {
-                string htmlStuff = $"<a href='/' class='path'>Servers</a>";
-                List<DiscordGuild> guilds = await Utils.GetAllGuilds();
+                string htmlStuff = $"<div style='display: flex; gap: 5px'><a href='/' class='path'>Servers</a></div>";
+                List<DiscordGuild>? guilds = await Utils.GetAllGuildsAsnyc();
+
+                if (guilds == null) return Results.BadRequest("unable to get guilds");
 
                 foreach (var guild in guilds)
                 {
@@ -95,100 +98,124 @@ namespace luaobfuscator_forumsync
                         <!--{guild.Id}-->
                     </a>";
 
-                    List<DiscordChannel> forumChannels = await Utils.GetAllGuildForums(guild);
+                    List<DiscordForumChannel> forumChannels = await Utils.GetAllGuildForums(guild);
                     string forumElements = "";
 
                     if (forumChannels != null)
                     {
                         foreach (var channel in forumChannels)
                         {
-                            forumElements += $@"<a class='threaditem subitem' href='/forum/{channel.Id}'>
+                            forumElements += $@"<a class='threaditem subitem' href='/forum/{guild.Id}/{channel.Id}'>
                                 <span>{channel.Name}</span>
                             </a>";
                         }
 
                         htmlStuff = htmlStuff.Replace($@"<!--{guild.Id}-->", forumElements);
                     }
-                    else htmlStuff = htmlStuff.Replace($@"<!--{guild.Id}-->", $@"<a class='threaditem subitem'>
-                                <span>unable to load forums</span>
-                            </a>");
+                    else htmlStuff = htmlStuff.Replace($@"<!--{guild.Id}-->", $@"<a class='threaditem subitem'><span>unable to load forums</span></a>");
                 }
 
                 string finalHtml = htmlContent1.Replace("<!--content-->", htmlStuff).Replace("<!--guildIcon-->", "");
                 return Results.Content(finalHtml, "text/html");
             });
-            app.MapGet("/forum", async () => { return Results.Redirect("/"); });
-            app.MapGet("/forum/{channelId}", async (ulong channelId) =>
+            app.MapGet("/forum", () => { return Results.Redirect("/"); });
+            app.MapGet("/forum/{guildId}", (ulong guildId) => { return Results.Redirect("/"); });
+            app.MapGet("/forum/{guildId}/{channelId}", async (ulong guildId, ulong channelId, int count = 10) =>
             {
-                var data = await ForumSync.FetchForumData(channelId);
-                if (data == null) return Results.NotFound("Channel not found.");
-                if (discordClient == null) return Results.InternalServerError("internal error! discord client not set up.");
-                DiscordChannel channel = await discordClient.GetChannelAsync(channelId);
+                DiscordGuild? guild = await Utils.GetGuildAsync(guildId);
+                DiscordChannel? channel = await Utils.GetChannelAsync(channelId);
+
+                if (channel?.Type != DiscordChannelType.GuildForum) return Results.BadRequest("<channel> is not a <GuildForum>");
+
+                List<DiscordThreadChannel>? threads = await Utils.GetThreadsAsync(channel) ?? [];
+
+                string guildName = guild?.Name ?? "N/A";
+                string channelName = channel?.Name ?? "N/A";
 
                 string htmlStuff = $@"<div style='display: flex; gap: 5px'>
-                    <a href='/forum' class='path'>{channel.Guild.Name}</a>
-                    <a href='/forum/{channelId}' class='path'>{channel.Name}</a>
+                    <a href='/forum' class='path'>{guildName}</a>
+                    <a href='/forum/{guildId}/{channelId}' class='path'>{channelName}</a>
                 </div>";
-                foreach (var thread in data)
+
+                foreach (var thread in threads[..Math.Min(count, threads.Count)])
                 {
-                    htmlStuff += $@"<a class='threaditem' href='/forum/{channelId}/{thread.Id}'>
-                        <img src='{thread.AuthorAvatarUrl}' loading='lazy'>
+                    DiscordUser? author = await Utils.GetUserAsync(thread.CreatorId);
+
+                    htmlStuff += $@"<a class='threaditem' href='/forum/{guildId}/{channelId}/{thread.Id}'>
+                        <img src='{author?.AvatarUrl}' loading='lazy'>
                         <div>
                             <h3>{thread.Name}</h3>
-                            <p><span class='inline-text'>{thread.AuthorName}</span> <span class='inline-text'>{thread.CreatedTimestampString}</span></p>
+                            <p><span class='inline-text'>{author?.Username}</span> <span class='inline-text'>{thread.CreationTimestamp:HH:mm - dd/MM/yyyy}</span></p>
                         </div>
                     </a>";
                 }
 
-                string finalHtml = htmlContent1.Replace("<!--content-->", htmlStuff).Replace("<!--guildIcon-->", channel.Guild.IconUrl);
+                if (count < threads.Count) htmlStuff += $@"<a class='viewmore' href='?count={count + 5}'>view more</a>";
+
+                string finalHtml = htmlContent1.Replace("<!--content-->", htmlStuff).Replace("<!--guildIcon-->", "");
                 return Results.Content(finalHtml, "text/html");
             });
-            app.MapGet("/forum/{channelId}/{threadId}", async (ulong channelId, ulong threadId) =>
+            app.MapGet("/forum/{guildId}/{channelId}/{threadId}", async (ulong guildId, ulong channelId, ulong threadId, int count = 10) =>
             {
-                var data = await ForumSync.FetchForumData(channelId);
-                if (data == null) return Results.NotFound("Channel not found.");
-                DiscordChannel channel = await discordClient.GetChannelAsync(channelId);
+                DiscordGuild? guild = await Utils.GetGuildAsync(guildId);
+                DiscordChannel? channel = await Utils.GetChannelAsync(channelId);
+                DiscordChannel? _thread = await Utils.GetChannelAsync(threadId);
 
-                string htmlStuff = $@"<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/monokai.min.css'><script src='https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js'></script><script>hljs.highlightAll();</script>";
-                var thread = data.FirstOrDefault(t => t.Id == threadId);
-                if (thread == null) return Results.NotFound("Thread not found.");
+                if (channel?.Type != DiscordChannelType.GuildForum) return Results.BadRequest("<channel> is not a <GuildForum>");
+                if (_thread?.Type != DiscordChannelType.PublicThread) return Results.BadRequest("<thread> is not a <PublicThread>");
 
-                foreach (var message in thread.Messages)
-                {
-                    if (message.Id == thread.FirstMessage?.Id || Utils.ValidateMessage(message) == false) continue;
-                    string authorAvatarUrl = message.Author?.AvatarUrl ?? message.Author?.DefaultAvatarUrl ?? "";
-                    string authorUsername = message.Author?.Username ?? "Deleted User";
+                DiscordThreadChannel thread = (DiscordThreadChannel)_thread;
+                List<DiscordMessage> threadMessages = [];
 
-                    htmlStuff += $@"<div class='threaditem grid' id='{message.Id}'>
-                        <div class='threaditem-author'>
-                            <img src='{authorAvatarUrl}'>
-                            <div>
-                                <p><span class='inline-text'>@{authorUsername}</span> <span class='inline-text'>{message.CreationTimestamp:HH:mm - dd/MM/yyyy}</span></p>
-                            </div>
-                        </div>
-                        <span class='message-content'>{Utils.FormatMessageContent(message)}</span>
-                    </div>";
-                }
+                await foreach (var message in _thread.GetMessagesAsync()) threadMessages.Add(message);
 
-                string finalHtml = htmlContent2.Replace("<!--content1-->", $@"<div style='display: flex; gap: 5px'>
-                    <a href='/forum' class='path'>{channel.Guild.Name}</a>
-                    <a href='/forum/{channelId}' class='path'>{channel.Name}</a>
-                    <a href='/forum/{channelId}/{thread.Id}' class='path'>{thread.Name}</a>
-                </div>
-                <a class='threaditem' style='margin-bottom: 10px'>
-                    <img src='{thread.AuthorAvatarUrl}' loading='lazy'>
+                string guildName = guild?.Name ?? "N/A";
+                string channelName = channel?.Name ?? "N/A";
+                DiscordUser? author = await Utils.GetUserAsync(thread.CreatorId);
+
+                string htmlStuff = $@"<div style='display: flex; gap: 5px'>
+                    <a href='/forum' class='path'>{guildName}</a>
+                    <a href='/forum/{guildId}/{channelId}' class='path'>{channelName}</a>
+                    <a href='/forum/{guildId}/{channelId}/{threadId}' class='path'>{thread.Name}</a>
+                </div>";
+
+
+                htmlStuff += $@"<a class='threaditem' style='margin-bottom: 10px'>
+                    <img src='{author?.AvatarUrl}' loading='lazy'>
                     <div class='threaditem-author grid'>
                         <h3>{thread.Name}</h3>
-                        <p><span class='inline-text'>@{thread.AuthorName}</span> <span class='inline-text'>{thread.CreatedTimestampString}</span></p>
+                        <p><span class='inline-text'>@{author?.Username}</span> <span class='inline-text'>{thread.CreationTimestamp:HH:mm - dd/MM/yyyy}</span></p>
                     </div>
                     <div class='break'></div>
-                    <span class='message-content'>{Utils.FormatMessageContent(thread.FirstMessage)}</span>
-                </a>").Replace("<!--content2-->", htmlStuff).Replace("<!--guildIcon-->", channel.Guild.IconUrl);
+                    <span class='message-content'>{Utils.FormatMessageContent(threadMessages.Last())}</span>
+                </a>";
 
+                foreach (var message in threadMessages)
+                {
+                    if (Utils.ValidateMessage(message) == false) continue;
+
+                    if (message.Id != threadMessages.Last()?.Id)
+                    {
+                        string authorAvatarUrl = message.Author?.AvatarUrl ?? message.Author?.DefaultAvatarUrl ?? "";
+                        string authorUsername = message.Author?.Username ?? "Deleted User";
+
+                        htmlStuff += $@"<div class='threaditem grid' id='{message.Id}'>
+                            <div class='threaditem-author'>
+                                <img src='{authorAvatarUrl}'>
+                                <div>
+                                    <p><span class='inline-text'>@{authorUsername}</span> <span class='inline-text'>{message.CreationTimestamp:HH:mm - dd/MM/yyyy}</span></p>
+                                </div>
+                            </div>
+                            <span class='message-content'>{Utils.FormatMessageContent(message)}</span>
+                        </div>";
+                    }
+                }
+
+                string finalHtml = htmlContent1.Replace("<!--content-->", htmlStuff).Replace("<!--guildIcon-->", "");
                 return Results.Content(finalHtml, "text/html");
             });
-            app.Run();
 
+            app.Run();
             await discordClient.ConnectAsync(new DiscordActivity("Forums", DiscordActivityType.Watching), DiscordUserStatus.Online);
             await Task.Delay(-1);
         }
