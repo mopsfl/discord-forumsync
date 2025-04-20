@@ -1,4 +1,4 @@
-# luaobfuscator-forumsync
+# discord-forumsync
 
 > this is a concept/example to sync a discord forum to a website.
 > 
