@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using DSharpPlus.Entities;
 using FastCache;
 using Markdig;
@@ -8,13 +9,12 @@ namespace discord_forumsync
 {
     public partial class Utils
     {
-        public static string FormatMessageContent(DiscordMessage message)
+        public static string FormatMessageContent(DiscordMessage message, DiscordGuild? guild)
         {
             if (message == null) return "";
             string messageContent = HtmlFilterRegex().Replace(message.Content, string.Empty);
-
             foreach (var user in message.MentionedUsers) messageContent = ReplaceMentionWithUsername(messageContent, user);
-            messageContent = ReplaceEmojis(messageContent);
+            messageContent = ParseEmojis(messageContent);
             messageContent = Markdown.ToHtml(messageContent, new MarkdownPipelineBuilder().UseAdvancedExtensions().Build());
 
             foreach (var attachment in message.Attachments)
@@ -44,7 +44,6 @@ namespace discord_forumsync
             {
                 if (sticker.StickerUrl != null) messageContent += $"<img src='{sticker.BannerUrl}' class='attachment-img' loading='lazy'>";
             }
-
             return messageContent;
         }
 
@@ -171,66 +170,21 @@ namespace discord_forumsync
             return messageContent.Replace($"<@{user.Id}>", $"<span class='mention'>@{user.Username}</span>");
         }
 
-        public static string ReplaceCodeBlocks(string content)
+        public static string ParseEmojis(string text)
         {
-            string pattern = @"\`\`\`(\w+\n)?([\s\S]*?)\`\`\`";
-            return Regex.Replace(content, pattern, match =>
+            var parsedText = Emoji1Regex().Replace(text, match => $"<img src='{match.Groups[3]}' alt='{match.Groups[2]}' class='attachment-img' loading='lazy'>");
+            if (parsedText == text)
             {
-                string codeContent = match.Groups[2].Value.Trim();
-                return $"<span class='codeblock'>{codeContent}</span>";
-            });
+                parsedText = Emoji2Regex().Replace(text, match =>
+                {
+                    bool parseSuccess = ulong.TryParse(match.Groups[1].Value, out ulong emojiId);
+                    return parsedText;
+                });
+            }
+
+            return text;
         }
 
-        public static string ReplaceInlineCodeText(string content)
-        {
-            string pattern = @"`([^`]+?)`";
-            return Regex.Replace(content, pattern, match =>
-            {
-                string codeContent = match.Groups[1].Value.Trim();
-                return $"<span class='inline-text'>{codeContent}</span>";
-            });
-        }
-
-        public static string ReplaceCursiveText(string content)
-        {
-            string pattern = @"_(?<text>[^_]+?)_|\*(?<text>[^*]+?)\*(?!\*)";
-            return Regex.Replace(content, pattern, match =>
-            {
-                string textContent = match.Groups["text"].Value.Trim();
-                return $"<span class='cursive-text'>{textContent}</span>";
-            });
-        }
-
-        public static string ReplaceBoldText(string content)
-        {
-            string pattern = @"\*\*(?<text>[^*]+?)\*\*";
-            return Regex.Replace(content, pattern, match =>
-            {
-                string textContent = match.Groups["text"].Value.Trim();
-                return $"<span class='bold-text'>{textContent}</span>";
-            });
-        }
-
-        public static string ReplaceMarkdownUrl(string content)
-        {
-            string pattern = @"\[(?<name>\w+)\]\((?<url>https\:\/\/.*)\)";
-            return Regex.Replace(content, pattern, match =>
-            {
-                string url = match.Groups["url"].Value.Trim();
-                string name = match.Groups["name"].Value.Trim();
-                return $"<a href='{url}' target='_blank'>{name}</a>";
-            });
-        }
-
-        public static string ReplaceEmojis(string text)
-        {
-            string pattern = @"\[(?<name>[^\]]+)\]\((?<url>https:\/\/cdn\.discordapp\.com\/emojis\/\d+\.(?<extension>webp|gif)\?size=\d+&quality=lossless&name=[^\)]+|https:\/\/media\.discordapp\.net\/stickers\/\d+\.(png|gif)\?size=\d+&name=[^\)]+)\)";
-
-            return Regex.Replace(text, pattern, match =>
-            {
-                return $"<img src='{match.Groups[3]}' alt='{match.Groups[2]}' class='attachment-img' loading='lazy'>";
-            });
-        }
 
         public static bool ValidateMessage(DiscordMessage message)
         {
@@ -261,7 +215,13 @@ namespace discord_forumsync
             return $"{bytes} bytes";
         }
 
-        [GeneratedRegex("<(?!@|#)[^>]+?>")]
+        [GeneratedRegex("<(?!:[a-zA-Z0-9_]+:\\d{18}>)(?!@|#)(?!:)[^>]+?>")]
         private static partial Regex HtmlFilterRegex();
+
+        [GeneratedRegex(@"\[(?<name>[^\]]+)\]\((?<url>https:\/\/cdn\.discordapp\.com\/emojis\/\d+\.(?<extension>webp|gif)\?size=\d+&quality=lossless&name=[^\)]+|https:\/\/media\.discordapp\.net\/stickers\/\d+\.(png|gif)\?size=\d+&name=[^\)]+)\)")]
+        private static partial Regex Emoji1Regex();
+
+        [GeneratedRegex(@"<:[a-zA-Z0-9_]+:(\d+)>")]
+        private static partial Regex Emoji2Regex();
     }
 }

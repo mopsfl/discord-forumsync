@@ -1,10 +1,13 @@
 * {
+    box-sizing: border-box;
     color: white;
     scrollbar-width: thin;
     -ms-overflow-style: thin;
 }
 
 body {
+    overflow-x: hidden;
+    font-family: 'gg sans Normal Regular';
     background: #1a1a1a;
 }
 
@@ -33,10 +36,13 @@ body {
 }
 
 .headerbtn {
+    font-family: 'gg sans SemiBold Regular';
+    font-weight: 500;
     display: flex;
     align-content: center;
     align-items: center;
-    max-width: 25px;
+    max-width: 30px;
+    max-height: 30px;
     overflow: hidden;
     white-space: nowrap;
     padding: 3px;
@@ -73,7 +79,6 @@ body {
     background-color: #2b2b2b;
     color: white;
     padding: 10px;
-    font-family: Arial;
     text-decoration: none;
     display: flex;
     flex-wrap: wrap;
@@ -82,6 +87,53 @@ body {
     outline: solid 1px #464646;
     box-shadow: black 2px 1px 5px 1px;
     transition: background-color .2s;
+}
+
+.thread {
+    display: flex;
+    flex-direction: column;
+}
+
+.thread-author {
+    display: flex;
+    margin-bottom: 10px;
+}
+
+.thread-author-info {
+    display: flex;
+    height: min-content;
+    gap: 5px;
+}
+
+.forumname {
+    display: flex;
+    align-items: center;
+}
+
+.channelhashtag {
+    margin-right: 5px;
+    font-family: 'gg sans Bold';
+}
+
+.guild {
+    display: flex;
+    flex-direction: column;
+}
+
+.guildname,
+.threadname {
+    font-size: 20px;
+    font-family: 'gg sans Bold';
+}
+
+.guildid {
+    font-style: italic;
+    font-size: 12px;
+}
+
+.firstmsg {
+    margin-bottom: 10px;
+    max-width: calc(100vw - 15px);
 }
 
 .threaditem:nth-of-type(1) {
@@ -122,7 +174,6 @@ img:not(.attachment-img) {
 
 a {
     color: #009fff;
-    font-family: Arial;
 }
 
 .attachment-file {
@@ -178,23 +229,18 @@ a {
     border-radius: 3px;
 }
 
-.threaditem-author {
-    display: flex;
-}
-
 .mention {
-    background: #4a4b6f;
+    background-color: #5f72d16e;
     padding: 3px;
     border-radius: 3px;
 }
 
 .mention:not(.mention-role) {
-    outline: solid 1px #575882;
     cursor: pointer;
 }
 
 .mention:hover {
-    filter: brightness(1.1);
+    background-color: #5f72d1;
 }
 
 code {
@@ -205,19 +251,20 @@ code {
     display: block;
     padding: 10px;
     border-radius: 3px;
-    font-family: Courier New;
+    font-family: Courier New !important;
     font-size: 14px;
     margin-top: 5px;
     margin-bottom: 5px;
     white-space: pre;
     max-height: 350px;
-    /*box-shadow: inset 0px -10px 10px -4px black;*/
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
 }
 
 code::after {
     position: absolute;
     content: 'content_copy';
-    font-family: 'Material Symbols Outlined';
+    font-family: 'Material Symbols Outlined' !important;
     font-size: 20px;
     border-radius: 2px;
     top: 5px;
@@ -271,6 +318,14 @@ code:hover::after {
     outline: solid 1px #464646;
 }
 
+.message-content {
+    width: 100%;
+}
+
 .message-content>*:last-child {
     margin-bottom: 0;
+}
+
+.message-content>*:first-child {
+    margin-top: 0;
 }

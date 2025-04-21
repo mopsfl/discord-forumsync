@@ -25,6 +25,7 @@ namespace discord_forumsync
             <meta charset='UTF-8'>
             <meta name='viewport' content='width=device-width, initial-scale=1.0'>
             <title>Forum Sync Test</title>
+            <link rel='stylesheet' href='/font/ggans.css'>
             <link rel='stylesheet' href='/style.css'>
             <link rel='icon' type='image/x-icon' href='<!--guildIcon-->'>
             <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/monokai.min.css'>
@@ -89,7 +90,7 @@ namespace discord_forumsync
                 string htmlStuff = @$"
                 <div style='display: flex; gap: 5px'><a href='/' class='path'>Servers</a></div>
                 <div class='headerbuttons'>
-                    <a class='headerbtn refresh' href='/forum/sync'><span class='material-symbols-outlined'>sync</span><span>Sync</span></a>
+                    <a class='headerbtn refresh' href='/forum/sync'><span class='material-symbols-outlined'>sync</span><span>Synchronize</span></a>
                     <a class='headerbtn addserver' href='/forum/add'><span class='material-symbols-outlined'>add</span><span>Add Server</span></a>
                 </div>
                 ";
@@ -101,9 +102,9 @@ namespace discord_forumsync
                 {
                     htmlStuff += $@"<a class='threaditem'>
                         <img src='{guild.IconUrl ?? "/unknown.png"}' loading='lazy'>
-                        <div>
-                            <h3>{guild.Name}</h3>
-                            <small class='gray'>{guild.Id}</small>
+                        <div class='guild'>
+                            <span class='guildname'>{guild.Name}</span>
+                            <small class='gray guildid'>{guild.Id}</small>
                         </div>
                         <!--{guild.Id}-->
                     </a>";
@@ -115,7 +116,7 @@ namespace discord_forumsync
                     {
                         foreach (var channel in forumChannels)
                         {
-                            forumElements += $@"<a class='threaditem subitem' href='/forum/{guild.Id}/{channel.Id}'><span>{channel.Name}</span></a>";
+                            forumElements += $@"<a class='threaditem subitem' href='/forum/{guild.Id}/{channel.Id}'><span class='forumname'><span class='channelhashtag'>#</span>{channel.Name}</span></a>";
                         }
 
                         htmlStuff = htmlStuff.Replace($@"<!--{guild.Id}-->", forumElements);
@@ -173,9 +174,9 @@ namespace discord_forumsync
 
                     htmlStuff += $@"<a class='threaditem' href='/forum/{guildId}/{channelId}/{thread.Id}'>
                         <img src='{author?.AvatarUrl}' loading='lazy'>
-                        <div>
-                            <h3>{thread.Name}</h3>
-                            <p><span class='inline-text'>{author?.Username}</span> <span class='inline-text'>{thread.CreationTimestamp:HH:mm - dd/MM/yyyy}</span></p>
+                        <div class='thread'>
+                            <span class='threadname'>{thread.Name}</span>
+                            <p><span class='inline-text'>@{author?.Username}</span> <span class='inline-text'>{thread.CreationTimestamp:HH:mm - dd/MM/yyyy}</span></p>
                         </div>
                     </a>";
                 }
@@ -210,15 +211,15 @@ namespace discord_forumsync
                 </div>";
 
 
-                htmlStuff += $@"<a class='threaditem' style='margin-bottom: 10px'>
+                htmlStuff += $@"<div class='threaditem firstmsg'>
                     <img src='{author?.AvatarUrl}' loading='lazy'>
-                    <div class='threaditem-author grid'>
-                        <h3>{thread.Name}</h3>
+                    <div class='thread'>
+                        <span class='threadname'>{thread.Name}</span>
                         <p><span class='inline-text'>@{author?.Username}</span> <span class='inline-text'>{thread.CreationTimestamp:HH:mm - dd/MM/yyyy}</span></p>
                     </div>
                     <div class='break'></div>
-                    <span class='message-content'>{Utils.FormatMessageContent(threadMessages.Last())}</span>
-                </a>";
+                    <span class='message-content'>{Utils.FormatMessageContent(threadMessages.Last(), guild)}</span>
+                </div>";
 
                 foreach (var message in threadMessages)
                 {
@@ -229,13 +230,14 @@ namespace discord_forumsync
                         string authorUsername = message.Author?.Username ?? "Deleted User";
 
                         htmlStuff += $@"<div class='threaditem grid' id='{message.Id}'>
-                            <div class='threaditem-author'>
+                            <div class='thread-author'>
                                 <img src='{authorAvatarUrl}'>
-                                <div>
-                                    <p><span class='inline-text'>@{authorUsername}</span> <span class='inline-text'>{message.CreationTimestamp:HH:mm - dd/MM/yyyy}</span></p>
+                                <div class='thread-author-info'>
+                                    <span class='inline-text'>@{authorUsername}</span>
+                                    <span class='inline-text'>{message.CreationTimestamp:HH:mm - dd/MM/yyyy}</span>
                                 </div>
                             </div>
-                            <span class='message-content'>{Utils.FormatMessageContent(message)}</span>
+                            <span class='message-content'>{Utils.FormatMessageContent(message, guild)}</span>
                         </div>";
                     }
                 }
