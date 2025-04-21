@@ -1,7 +1,7 @@
 * {
     color: white;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    scrollbar-width: thin;
+    -ms-overflow-style: thin;
 }
 
 body {
@@ -24,8 +24,47 @@ body {
     font-weight: bold;
 }
 
+.headerbuttons {
+    position: absolute;
+    top: 5px;
+    right: 10px;
+    display: flex;
+    gap: 5px;
+}
+
+.headerbtn {
+    display: flex;
+    align-content: center;
+    align-items: center;
+    max-width: 25px;
+    overflow: hidden;
+    white-space: nowrap;
+    padding: 3px;
+    background-color: #2b2b2b;
+    border-radius: 2px;
+    outline: solid 1px #464646;
+    text-decoration: none;
+    color: white;
+    transition: background-color .2s, max-width .4s;
+}
+
+.headerbtn>.material-symbols-outlined {
+    margin-right: 5px;
+}
+
+.headerbtn:hover {
+    background-color: #414141;
+    outline: solid 1px #707070;
+    max-width: 150px;
+}
+
+.headerbtn:active {
+    background-color: #2b2b2b;
+    outline: solid 1px #464646;
+}
+
 .container {
-    margin: 1em 20%;
+    margin: 0;
     display: grid;
     gap: 5px
 }
@@ -89,7 +128,7 @@ a {
 .attachment-file {
     padding: 10px;
     padding-left: 5px;
-    background: #262626;
+    background: #1a1a1a;
     text-align: left;
     max-width: 250px;
     border-radius: 3px;
@@ -134,7 +173,7 @@ a {
 }
 
 .inline-text {
-    background: #2d2d2d;
+    background: #1a1a1a;
     padding: 3px;
     border-radius: 3px;
 }
@@ -211,8 +250,8 @@ code:hover::after {
     box-shadow: black 2px 1px 5px 1px;
     padding: 5px;
     font-family: Arial;
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
     height: min-content;
     max-width: 250px;
     text-wrap: nowrap;
@@ -234,10 +273,4 @@ code:hover::after {
 
 .message-content>*:last-child {
     margin-bottom: 0;
-}
-
-@media only screen and (max-width: 1000px) {
-    .container {
-        margin: 0;
-    }
 }

@@ -2,13 +2,15 @@ using DSharpPlus;
 using DSharpPlus.Entities;
 using System.Text.RegularExpressions;
 using dotenv.net;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.AspNetCore.Mvc;
 
-// TODO: only fetch message from thread when required (dont fetch all at once)
-//       use FastCache for messages
+// TODO: cache messages
 //       add handler for message editing
 //       fix buggy thread rendering (example: http://localhost:5046/forum/1207274943004282900/1284499655924908062)
 
-namespace luaobfuscator_forumsync
+namespace discord_forumsync
 {
     public sealed class Program
     {
@@ -73,17 +75,25 @@ namespace luaobfuscator_forumsync
             ).SetLogLevel(LogLevel.Debug);
 
             discordClient = clientBuilder.Build();
-            await clientBuilder.ConnectAsync();
 
             var builder = WebApplication.CreateBuilder();
             var app = builder.Build();
 
             app.UseStaticFiles();
 
-            app.MapGet("/", async () =>
+            app.MapGet("/", async (HttpContext context) =>
             {
-                string htmlStuff = $"<div style='display: flex; gap: 5px'><a href='/' class='path'>Servers</a></div>";
-                List<DiscordGuild>? guilds = await Utils.GetAllGuildsAsnyc();
+                string? syncId = context.Request.Cookies["__s"];
+                if (syncId != null) context.Response.Cookies.Delete("__s");
+
+                string htmlStuff = @$"
+                <div style='display: flex; gap: 5px'><a href='/' class='path'>Servers</a></div>
+                <div class='headerbuttons'>
+                    <a class='headerbtn refresh' href='/forum/sync'><span class='material-symbols-outlined'>sync</span><span>Sync</span></a>
+                    <a class='headerbtn addserver' href='/forum/add'><span class='material-symbols-outlined'>add</span><span>Add Server</span></a>
+                </div>
+                ";
+                List<DiscordGuild>? guilds = await Utils.GetAllGuildsAsnyc(syncId);
 
                 if (guilds == null) return Results.BadRequest("unable to get guilds");
 
@@ -98,16 +108,14 @@ namespace luaobfuscator_forumsync
                         <!--{guild.Id}-->
                     </a>";
 
-                    List<DiscordForumChannel> forumChannels = await Utils.GetAllGuildForums(guild);
+                    List<DiscordForumChannel> forumChannels = await Utils.GetAllGuildForums(guild, syncId);
                     string forumElements = "";
 
                     if (forumChannels != null)
                     {
                         foreach (var channel in forumChannels)
                         {
-                            forumElements += $@"<a class='threaditem subitem' href='/forum/{guild.Id}/{channel.Id}'>
-                                <span>{channel.Name}</span>
-                            </a>";
+                            forumElements += $@"<a class='threaditem subitem' href='/forum/{guild.Id}/{channel.Id}'><span>{channel.Name}</span></a>";
                         }
 
                         htmlStuff = htmlStuff.Replace($@"<!--{guild.Id}-->", forumElements);
@@ -118,7 +126,29 @@ namespace luaobfuscator_forumsync
                 string finalHtml = htmlContent1.Replace("<!--content-->", htmlStuff).Replace("<!--guildIcon-->", "");
                 return Results.Content(finalHtml, "text/html");
             });
-            app.MapGet("/forum", () => { return Results.Redirect("/"); });
+            app.MapGet("/forum", (HttpContext context) =>
+            {
+                var sync = context.Request.Query["sync"].ToString() ?? "0";
+                if (sync == "1")
+                {
+                    var syncId = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
+
+                    context.Response.Cookies.Append("__s", syncId);
+                    return Results.Redirect($"/");
+                }
+                return Results.Redirect("/");
+            });
+            app.MapGet("/forum/add", () =>
+            {
+
+                return Results.Redirect("https://discord.com/oauth2/authorize?client_id=1268568114744786954&permissions=66560&integration_type=0&scope=bot");
+            });
+            app.MapGet("/forum/sync", (HttpContext context) =>
+            {
+                // TODO
+                return Results.Redirect("./?sync=1");
+            });
+
             app.MapGet("/forum/{guildId}", (ulong guildId) => { return Results.Redirect("/"); });
             app.MapGet("/forum/{guildId}/{channelId}", async (ulong guildId, ulong channelId, int count = 10) =>
             {
@@ -193,7 +223,6 @@ namespace luaobfuscator_forumsync
                 foreach (var message in threadMessages)
                 {
                     if (Utils.ValidateMessage(message) == false) continue;
-
                     if (message.Id != threadMessages.Last()?.Id)
                     {
                         string authorAvatarUrl = message.Author?.AvatarUrl ?? message.Author?.DefaultAvatarUrl ?? "";
@@ -216,7 +245,8 @@ namespace luaobfuscator_forumsync
             });
 
             app.Run();
-            await discordClient.ConnectAsync(new DiscordActivity("Forums", DiscordActivityType.Watching), DiscordUserStatus.Online);
+            await clientBuilder.ConnectAsync();
+            await discordClient.UpdateStatusAsync(new DiscordActivity("Forums", DiscordActivityType.Watching), DiscordUserStatus.Online);
             await Task.Delay(-1);
         }
     }

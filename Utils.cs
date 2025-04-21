@@ -1,13 +1,10 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using AngleSharp.Common;
 using DSharpPlus.Entities;
 using FastCache;
 using Markdig;
 
-namespace luaobfuscator_forumsync
+namespace discord_forumsync
 {
     public partial class Utils
     {
@@ -51,9 +48,9 @@ namespace luaobfuscator_forumsync
             return messageContent;
         }
 
-        public async static Task<List<DiscordForumChannel>> GetAllGuildForums(DiscordGuild guild)
+        public async static Task<List<DiscordForumChannel>> GetAllGuildForums(DiscordGuild guild, string? syncId)
         {
-            if (Cached<List<DiscordForumChannel>>.TryGet(guild.Id, out var cachedChannels))
+            if (Cached<List<DiscordForumChannel>>.TryGet(guild.Id, out var cachedChannels) && syncId == null)
             {
                 return cachedChannels;
             }
@@ -128,10 +125,10 @@ namespace luaobfuscator_forumsync
             return fetchedChannel;
         }
 
-        public async static Task<List<DiscordGuild>?> GetAllGuildsAsnyc()
+        public async static Task<List<DiscordGuild>?> GetAllGuildsAsnyc(string? syncId)
         {
             if (Program.discordClient == null) return null;
-            if (Cached<List<DiscordGuild>>.TryGet("guilds", out var cachedGuilds))
+            if (Cached<List<DiscordGuild>>.TryGet("guilds", out var cachedGuilds) && syncId == null)
             {
                 return cachedGuilds;
             }
@@ -237,7 +234,7 @@ namespace luaobfuscator_forumsync
 
         public static bool ValidateMessage(DiscordMessage message)
         {
-            if (message.Content == "" && message.Attachments.Count < 1) return false;
+            if (message.Content == "" && message.Attachments.Count < 1 || message.MessageType != DiscordMessageType.Default) return false;
             return true;
         }
 
